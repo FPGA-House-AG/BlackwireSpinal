@@ -18,5 +18,8 @@ lazy val blackwireSpinal = (project in file("."))
     libraryDependencies ++= Seq(sourceCode, scalaTest),
     libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin)
   )
+  .dependsOn(spinalCorundum)
+
+lazy val spinalCorundum = ProjectRef(file("../SpinalCorundum"), "spinalCorundum")
 
 fork := true
