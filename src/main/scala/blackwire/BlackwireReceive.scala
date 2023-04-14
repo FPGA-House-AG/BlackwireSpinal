@@ -44,6 +44,10 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
     val ctrl_rxkey = slave(Axi4(rxkeySlaveCfg))
   }
 
+  // to measure latencies in simulation
+  val cycle = Reg(UInt(32 bits)).init(0)
+  cycle := cycle + 1
+
   // x is TDATA+TKEEP Ethernet frame from Corundum
   val x = Stream Fragment(CorundumFrame(corundumDataWidth))
   x << io.sink
@@ -52,7 +56,7 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   val type4_demux = new CorundumFrameDemuxWireguardType4(corundumDataWidth)
   type4_demux.io.sink << x
 
-  // non-Type4 packet are routed here
+  // non-Type4 packets are routed here
   val dropOnFull = CorundumFrameDrop(corundumDataWidth)
   val readerStash = CorundumFrameStash(corundumDataWidth, fifoSize = 32)
   dropOnFull.io.sink << type4_demux.io.source_other
@@ -81,6 +85,9 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   w << headers.io.source
   val w_length = headers.io.source_length
 
+  //val meta_fifo = StreamFifo(Bits(32/*session*/ + 32/*IP*/ + 16/*UDP*/ bits), 8)
+
+
   // headers.io.header(239 downto 208) contains endpoint IPv4 source adddress
   // headers.io.header(287 downto 272) contains endpoint UDP source port
 
@@ -102,9 +109,13 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
 
   val k = Stream(Fragment(Bits(cryptoDataWidth bits)))
   k << rxkey.io.source
-  val key = rxkey.io.key_out
   val k_length = rxkey.io.source_length
- 
+
+  val key = rxkey.io.key_out
+  //val key_fifo = StreamFifo(Bits(256 bits), 8)
+  //key_fifo.io.push.valid := k.firstFire
+  //key_fifo.io.push.payload := key
+
   // s is the decrypted Type 4 payload but with the length determined from the IP header
   val s = Stream(Fragment(Bits(cryptoDataWidth bits)))
   val s_length = Reg(UInt(12 bits))
@@ -113,9 +124,9 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   val with_chacha = (include_chacha) generate new Area {
     // halt only after packet boundaries, start anywhere
     val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire && output_stash_too_full).clearWhen(!output_stash_too_full)
-    halt_input_to_chacha.addAttribute("mark_debug")
-    k.last.addAttribute("mark_debug")
-    output_stash_too_full.addAttribute("mark_debug")
+    ////halt_input_to_chacha.addAttribute("mark_debug")
+    ////k.last.addAttribute("mark_debug")
+    ////output_stash_too_full.addAttribute("mark_debug")
 
     // p is the decrypted Type 4 payload
     val p = Stream(Fragment(Bits(cryptoDataWidth bits)))
@@ -218,9 +229,9 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   lut.io.en := True
   lut.io.wr := False
   lut.io.wrData := 0
-  rxkey.io.receiver.addAttribute("mark_debug")
+  ////rxkey.io.receiver.addAttribute("mark_debug")
   val lut_address = U(rxkey.io.receiver.asBits.subdivideIn(8 bits).reverse.asBits.resize(log2Up(keys_num)))
-  lut_address.addAttribute("mark_debug")
+  ////lut_address.addAttribute("mark_debug")
   lut.io.addr := lut_address //rxkey.io.receiver.resize(log2Up(keys_num))
   
   rxkey.io.key_in := lut.io.rdData

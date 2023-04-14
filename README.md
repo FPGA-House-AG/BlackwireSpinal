@@ -1,5 +1,5 @@
-SpinalCorundum
-==============
+BlackwireSpinal
+===============
 
 Ethernet processing modules components (or modules) for FPGA that can be used to extend the Corundum FPGA PCIe/Ethernet framework. The modules are operating on AXI Streaming interfaces
 and can be controlled through an (optional) AXI4 slave.

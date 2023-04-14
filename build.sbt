@@ -12,9 +12,9 @@ val spinalIdslPlugin = compilerPlugin("com.github.spinalhdl" %% "spinalhdl-idsl-
 val sourceCode = "com.lihaoyi" %% "sourcecode" % "0.2.7"
 val scalaTest = "org.scalatest" % "scalatest_2.11" % "2.2.1"
       
-lazy val spinalCorundum = (project in file("."))
+lazy val blackwireSpinal = (project in file("."))
   .settings(
-    name := "SpinalCorundum",
+    name := "BlackwireSpinal",
     libraryDependencies ++= Seq(sourceCode, scalaTest),
     libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin)
   )

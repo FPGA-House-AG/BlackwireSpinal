@@ -1,21 +1,69 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Wed Mar 29 20:02:43 2023
+[*] Tue Apr 11 18:35:25 2023
 [*]
 [dumpfile] "/project-on-hos./simWorkspace/BlackwireTransmit/test.vcd"
-[dumpfile_mtime] "Wed Mar 29 20:02:43 2023"
-[dumpfile_size] 88768512
+[dumpfile_mtime] "Mon Apr 10 22:31:19 2023"
+[dumpfile_size] 142920867
 [savefile] "/project-on-hos./BlackwireTransmitGHDL.gtkw"
-[timestart] 0
+[timestart] 1894
 [size] 3539 1860
-[pos] -1 -1
-*-11.000000 586 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -77 -216
+*-8.000000 3440 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] blackwiretransmit.
+[treeopen] blackwiretransmit.flow0.
 [treeopen] blackwiretransmit.with_chacha_encrypt.
 [sst_width] 801
-[signals_width] 638
+[signals_width] 1015
 [sst_expanded] 1
 [sst_vpaned_height] 582
+@22
+blackwiretransmit.in_stash.source_tdata[511:0]
+blackwiretransmit.in_stash.source_tkeep[63:0]
+@28
+blackwiretransmit.in_stash.source_tlast
+blackwiretransmit.in_stash.source_tready
+@22
+blackwiretransmit.in_stash.source_tuser[16:0]
+@28
+blackwiretransmit.in_stash.source_tvalid
+@200
+-
+@28
+blackwiretransmit.mid_stash_too_full
+@200
+-
+@28
+blackwiretransmit.v_fire
+blackwiretransmit.v_payload_first
+@22
+blackwiretransmit.v_payload_fragment_tdata[511:0]
+blackwiretransmit.v_payload_fragment_tkeep[63:0]
+@28
+blackwiretransmit.v_payload_fragment_tuser[0]
+blackwiretransmit.v_payload_last
+blackwiretransmit.v_ready
+blackwiretransmit.v_valid
+blackwiretransmit.flow0_stash_too_full
+blackwiretransmit.out_stash_too_full
+@200
+-
+@28
+blackwiretransmit.y_fire
+@22
+blackwiretransmit.y_length[11:0]
+@23
+blackwiretransmit.y_hdr_length[11:0]
+@28
+blackwiretransmit.y_payload_first
+@22
+blackwiretransmit.y_payload_fragment[511:0]
+@28
+blackwiretransmit.y_payload_last
+blackwiretransmit.y_ready
+blackwiretransmit.y_valid
+@200
+-
 @22
 blackwiretransmit.with_chacha_encrypt.vhdl_in_key[255:0]
 blackwiretransmit.with_chacha_encrypt.vhdl_sink_tdata[127:0]
@@ -46,6 +94,15 @@ blackwiretransmit.with_chacha_encrypt.header_out[127:0]
 @200
 -
 @22
+blackwiretransmit.with_chacha_encrypt.vhdl_in_key[255:0]
+blackwiretransmit.with_chacha_encrypt.vhdl_header_out[127:0]
+blackwiretransmit.with_chacha_encrypt.vhdl_sink_tdata[127:0]
+@28
+blackwiretransmit.with_chacha_encrypt.vhdl_sink_tready
+blackwiretransmit.with_chacha_encrypt.vhdl_sink_tvalid
+@24
+blackwiretransmit.cycle[31:0]
+@22
 blackwiretransmit.with_chacha_encrypt.vhdl_source_tdata[127:0]
 @28
 blackwiretransmit.with_chacha_encrypt.vhdl_source_tlast
@@ -74,6 +131,40 @@ blackwiretransmit.ehl_valid
 @200
 -
 @22
+blackwiretransmit.us_payload_fragment[511:0]
+@28
+blackwiretransmit.us_payload_last
+blackwiretransmit.us_ready
+blackwiretransmit.us_valid
+@200
+-
+@22
+blackwiretransmit.c2_payload_fragment_tdata[511:0]
+blackwiretransmit.c2_payload_fragment_tkeep[63:0]
+@28
+blackwiretransmit.c2_payload_fragment_tuser[0]
+blackwiretransmit.c2_payload_last
+blackwiretransmit.c2_ready
+blackwiretransmit.c2_valid
+blackwiretransmit.out_stash_too_full
+blackwiretransmit.halt_input_to_outhdr
+@200
+-
+@22
+blackwiretransmit.flow0.source_tdata[511:0]
+blackwiretransmit.flow0.source_tkeep[63:0]
+@28
+blackwiretransmit.flow0.source_tready
+blackwiretransmit.flow0.source_tuser[0]
+blackwiretransmit.flow0.source_tvalid
+blackwiretransmit.flow0.source_tlast
+@22
+blackwiretransmit.outhdr.tdata_buffer[335:0]
+blackwiretransmit.flow0.length[11:0]
+@200
+-
+@22
+blackwiretransmit.flow0.length[11:0]
 blackwiretransmit.f_payload_fragment_tdata[511:0]
 blackwiretransmit.f_payload_fragment_tkeep[63:0]
 @28
@@ -84,6 +175,19 @@ blackwiretransmit.f_valid
 @200
 -
 @22
+blackwiretransmit.peer[7:0]
+blackwiretransmit.lookupendpoint_1_io_read_data[47:0]
+blackwiretransmit.lookupendpoint_1.io_high_prio_read_addr[7:0]
+@28
+blackwiretransmit.lookupendpoint_1.io_high_prio_read_enable
+@22
+blackwiretransmit.lookupendpoint_1.io_read_data[47:0]
+blackwiretransmit.udp_dst_port[15:0]
+blackwiretransmit.ip_dst_addr[31:0]
+blackwiretransmit.ip_hdr[159:0]
+@200
+-
+@22
 blackwiretransmit.fp_payload_fragment_tdata[511:0]
 blackwiretransmit.fp_payload_fragment_tkeep[63:0]
 @28
@@ -91,5 +195,35 @@ blackwiretransmit.fp_payload_fragment_tuser[0]
 blackwiretransmit.fp_payload_last
 blackwiretransmit.fp_ready
 blackwiretransmit.fp_valid
+@22
+blackwiretransmit.fc_payload_fragment_tdata[511:0]
+blackwiretransmit.fc_payload_fragment_tkeep[63:0]
+@28
+blackwiretransmit.fc_payload_fragment_tuser[0]
+blackwiretransmit.fc_payload_last
+blackwiretransmit.fc_ready
+blackwiretransmit.fc_valid
+blackwiretransmit.frs_fire
+blackwiretransmit.frs_payload_first
+@22
+blackwiretransmit.frs_payload_fragment_tdata[511:0]
+blackwiretransmit.frs_payload_fragment_tkeep[63:0]
+@28
+blackwiretransmit.frs_payload_fragment_tuser[0]
+blackwiretransmit.frs_payload_last
+blackwiretransmit.frs_ready
+blackwiretransmit.frs_valid
+@200
+-
+@22
+blackwiretransmit.source_tdata[511:0]
+blackwiretransmit.source_tkeep[63:0]
+@28
+blackwiretransmit.source_tlast
+blackwiretransmit.source_tready
+@22
+blackwiretransmit.source_tuser[16:0]
+@28
+blackwiretransmit.source_tvalid
 [pattern_trace] 1
 [pattern_trace] 0

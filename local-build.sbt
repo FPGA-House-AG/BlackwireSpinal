@@ -18,9 +18,9 @@ val scalaTest = "org.scalatest" % "scalatest_2.11" % "2.2.1"
 // for {Dense,Sparse}{Vector,Matrix) used by LowCost.scala_
 //val breeze = "org.scalanlp" %% "breeze" % "0.11.2"
 
-lazy val spinalCorundum = (project in file("."))
+lazy val blackwireSpinal = (project in file("."))
   .settings(
-    name := "SpinalCorundum",
+    name := "BlackwireSpinal",
     libraryDependencies ++= Seq(sourceCode, scalaTest),
     //libraryDependencies ++= Seq(breeze),
     //libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin)
