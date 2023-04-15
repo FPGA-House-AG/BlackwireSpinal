@@ -499,21 +499,24 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   udp_hdr := hdr((6)*8 + 0, 16 bits) ## udp_dst_port ## fp.fragment.tdata((14 + 20 + 4) * 8, 16 bits) ## hdr(0, 16 bits)
   
   // calculate IPv4 header checksum
-  val ip_chk = UInt(26 bits) // too small, @TODO fix
-  ip_chk := U(ip_hdr(  7 downto   0) ## ip_hdr( 15 downto   8)).resize(26) +
-            U(ip_hdr( 23 downto  16) ## ip_hdr( 31 downto  24)).resize(26) +
-            U(ip_hdr( 39 downto  32) ## ip_hdr( 47 downto  40)).resize(26) +
-            U(ip_hdr( 55 downto  48) ## ip_hdr( 63 downto  56)).resize(26) +
-            U(ip_hdr( 87 downto  80) ## ip_hdr( 95 downto  88)).resize(26) +
-            U(ip_hdr(103 downto  96) ## ip_hdr(111 downto 104)).resize(26) +
-            U(ip_hdr(119 downto 112) ## ip_hdr(127 downto 120)).resize(26) +
-            U(ip_hdr(135 downto 128) ## ip_hdr(143 downto 136)).resize(26) +
-            U(ip_hdr(151 downto 144) ## ip_hdr(159 downto 152)).resize(26)
-  val ip_chk2 = UInt(16 bits)
+  val ip_chk1 = UInt(20 bits)
+  ip_chk1 := U(ip_hdr(  7 downto   0) ## ip_hdr( 15 downto   8)).resize(20) +
+             U(ip_hdr( 23 downto  16) ## ip_hdr( 31 downto  24)).resize(20) +
+             U(ip_hdr( 39 downto  32) ## ip_hdr( 47 downto  40)).resize(20) +
+             U(ip_hdr( 55 downto  48) ## ip_hdr( 63 downto  56)).resize(20) +
+             U(ip_hdr( 87 downto  80) ## ip_hdr( 95 downto  88)).resize(20) +
+             U(ip_hdr(103 downto  96) ## ip_hdr(111 downto 104)).resize(20) +
+             U(ip_hdr(119 downto 112) ## ip_hdr(127 downto 120)).resize(20) +
+             U(ip_hdr(135 downto 128) ## ip_hdr(143 downto 136)).resize(20) +
+             U(ip_hdr(151 downto 144) ## ip_hdr(159 downto 152)).resize(20)
+  val ip_chk2 = UInt(17 bits)
   /* add carries */
-  ip_chk2 := (ip_chk >> 16).resize(16) + (ip_chk & 0x0ffff).resize(16)
-  
-  val ip_hdr_with_checksum = ip_hdr(159 downto 80) ## ~ip_chk2.asBits.resize(16) ## ip_hdr(63 downto 0)
+  ip_chk2 := (ip_chk1 >> 16).resize(16) + (ip_chk1 & 0x0ffff).resize(16)
+  val ip_chk3 = UInt(16 bits)
+  /* add carries */
+  ip_chk3 := (ip_chk2 >> 16).resize(16) + (ip_chk2 & 0x0ffff).resize(16)
+
+  val ip_hdr_with_checksum = ip_hdr(159 downto 80) ## ~ip_chk3.asBits.subdivideIn(8 bits).reverse.asBits ## ip_hdr(63 downto 0)
   // create header from fp for fc
   val eth_ip_udp_hdr = RegNextWhen(eth_hdr ## ip_hdr_with_checksum ## udp_hdr, fp.firstFire)
 
