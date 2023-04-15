@@ -490,7 +490,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   (!has_busctrl) generate new Area {
     hdr := (B("112'xaabbcc222222000a3506a3be0800") ##
         B("16'x4500") ## B("16'x0000") ## B("32'x00000000") ## B("32'x08110000") ## B("32'xac100032") ## B("32'xac100001") ##
-        B("16'x15b3") ## B("16'x159a") ## B("16'x0000") ## B("16'x0000"/*checksum==unused*/))
+        B("16'x15b3") ## B("16'x159a") ## B("16'x0000") ## B("16'x0000"/*UDP checksum==unused*/))
         //.subdivideIn(8 bits).reverse.asBits
   }
   // {eth, ip, udp,}hdr are big endian, tdata is little endian!
