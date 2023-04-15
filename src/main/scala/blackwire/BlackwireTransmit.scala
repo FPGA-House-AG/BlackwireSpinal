@@ -168,7 +168,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   w << x.stage().stage()
 
   // peer index to session index (adds prev, current, next) for x to w
-  val session = Bits(2 bits)
+  val session = UInt(2 bits)
   val peer_addr = U(x.payload.tdata(7 downto 0))
   peer_addr.addAttribute("mark_debug")
   (!has_busctrl) generate new Area {
@@ -182,7 +182,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     p2s_lut.io.portB.wr := False
     p2s_lut.io.portB.wrData := 0
     p2s_lut.io.portB.addr := 0
-    session := p2s_lut.io.portA.rdData
+    session := U(p2s_lut.io.portA.rdData)
   }
   // Peer to Session lookup and update via bus controller
   (has_busctrl) generate new Area {
@@ -194,7 +194,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     val p2s_lut_address = peer_addr
     p2s_lut.io.addr := p2s_lut_address
     io.ctrl_p2s >> p2s_lut.io.ctrlbus
-    session := p2s_lut.io.rdData
+    session := U(p2s_lut.io.rdData)
   }
 
   val v = Stream Fragment(CorundumFrame(corundumDataWidth))
@@ -202,7 +202,8 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   v << w.stage().stage()
 
   val nonce = UInt(64 bits)
-  val nonce_addr = U(session).resized
+  // @NOTE must match software
+  val nonce_addr = session @@ Delay(peer_addr, 2)
   // lookup only for packets that are not to be dropped
   val nonce_lookup_and_increment = w.firstFire & !w.tuser(0)
   nonce_addr.addAttribute("mark_debug")
@@ -233,7 +234,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   when (v.isFirst) {
     // 0S PP 00 00 - 40 41 42 43 44 45 46 47 - 00 00 00 04
     v.payload.fragment.tdata(127 downto 0) := nonce ## 
-      B("6'x00") ## Delay(session, 2).resize(2) ## B("24'xAABBCC"/*peer_index*/) ##
+      B("6'x00") ## Delay(nonce_addr, 2).resize(10) ## B("16'xDDEE"/*peer_index*/) ##
       B("24'x000000") ## B("8'x04")
   }
   v.addAttribute("mark_debug")
@@ -249,6 +250,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   (!has_busctrl) generate new Area {
     val txkey_lut = LookupTable(256/*bits*/, keys_num)
     txkey_lut.mem.initBigInt(Seq.fill(keys_num)(BigInt("80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f".split(" ").reverse.mkString(""), 16)))
+    //txkey_lut.mem.initBigInt(Seq.tabulate(keys_num)(i => BigInt(i)))
     txkey_lut.io.portA.en := txkey_lookup
     txkey_lut.io.portA.wr := False
     txkey_lut.io.portA.wrData := 0
@@ -257,7 +259,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     txkey_lut.io.portB.wr := False
     txkey_lut.io.portB.wrData := 0
     txkey_lut.io.portB.addr := 0
-    txkey := txkey_lut.io.portA.rdData
+    txkey := txkey_lut.io.portA.rdData.subdivideIn(8 bits).reverse.asBits
   }
   // TX key lookup and update via bus controller
   (has_busctrl) generate new Area {
@@ -267,7 +269,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     txkey_lut.io.wr := False
     txkey_lut.io.wrData := 0
     txkey_lut.io.addr := txkey_lut_address
-    txkey := txkey_lut.io.rdData
+    txkey := txkey_lut.io.rdData.subdivideIn(8 bits).reverse.asBits
     io.ctrl_txkey >> txkey_lut.io.ctrlbus
   }
   val txkey_thumbnail = txkey(255 downto 248) ## txkey(7 downto 0)
@@ -304,10 +306,15 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
 
   // x w v y
 
+  // feedback signal from flow0 stash
+  val flow0_stash_too_full = Bool()
+  // halt only after packet boundaries, start anywhere
+  val halt_input_to_chacha0 = RegInit(False).setWhen(y.lastFire && flow0_stash_too_full).clearWhen(!flow0_stash_too_full)
+
   // d is the Type 4 plaintext packet in 128 bits
   val d = Stream(Fragment(Bits(cryptoDataWidth bits)))
   val downsizer = AxisDownSizer(corundumDataWidth, cryptoDataWidth)
-  downsizer.io.sink <-< y
+  downsizer.io.sink <-< y.haltWhen(halt_input_to_chacha0)
   downsizer.io.sink_length := RegNextWhen(y_length, y.ready)
   d <-< downsizer.io.source
   val d_length = RegNextWhen(downsizer.io.source_length, d.ready)
@@ -315,11 +322,6 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   // ehl is the encrypted Type 4 payload but with the length determined from the IP header
   val ehl = Stream(Fragment(Bits(cryptoDataWidth bits)))
   val ehl_length = UInt(12 bits)//Reg(UInt(12 bits))
-
-  // feedback signal
-  val flow0_stash_too_full = Bool()
-  // halt only after packet boundaries, start anywhere
-  val halt_input_to_chacha0 = RegInit(False).setWhen(d.lastFire && flow0_stash_too_full).clearWhen(!flow0_stash_too_full)
 
   flow0_stash_too_full.addAttribute("mark_debug")
   halt_input_to_chacha0.addAttribute("mark_debug")
@@ -334,14 +336,15 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     // en is the encrypted Type 4 payload
     val en = Stream(Fragment(Bits(cryptoDataWidth bits)))
     val encrypt = ChaCha20Poly1305EncryptSpinal()
-    encrypt.io.sink << d.haltWhen(halt_input_to_chacha0)
+    encrypt.io.sink << d
 
     //val txkey_from_fifo_thumb = key_fifo.io.pop.payload(255 downto 248) ## key_fifo.io.pop.payload(7 downto 0)
     //txkey_from_fifo_thumb.addAttribute("mark_debug")
 
     encrypt.io.key := key_fifo.io.pop.payload
     encrypt.io.key.addAttribute("mark_debug")
-    key_fifo.io.pop.ready := en.lastFire
+    // pop key from FIFO at end of packet
+    key_fifo.io.pop.ready := encrypt.io.sink.lastFire
     en << encrypt.io.source
 
     // The following code must be put into ChaCha20Poly1305EncryptSpinal class
@@ -351,7 +354,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     val eh_length = UInt(12 bits)//Reg(UInt(12 bits))
     eh <-< en
     // write WireGuard Type 4 header in front of encrypted plaintext
-    when (en.isFirst & en.fire) {
+    when (en.firstFire) {
       eh.payload.fragment := encrypt.io.header_out(127 downto 32) ## B("32'x00000004")
       eh.valid := True
     }
@@ -624,7 +627,7 @@ object BlackwireTransmitSim {
     val dataWidth = 512
     val maxDataValue = scala.math.pow(2, dataWidth).intValue - 1
     val keepWidth = dataWidth/8
-    val include_chacha = false
+    val include_chacha = true
 
     SimConfig
     // GHDL can simulate VHDL, required for ChaCha20Poly1305
