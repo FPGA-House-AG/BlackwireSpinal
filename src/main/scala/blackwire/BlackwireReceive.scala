@@ -206,36 +206,37 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   //printf("x to r = %d clock cycles.\n", LatencyAnalysis(x.valid, r.valid))
 
   val has_busctrl = true
+
+  val rxkey_lookup = rxkey.io.source.firstFire
+  val rxkey_addr = U(rxkey.io.receiver.asBits.subdivideIn(8 bits).reverse.asBits.resize(log2Up(keys_num)))
+
   (!has_busctrl) generate new Area {
-  val lut = LookupTable(256/*bits*/, keys_num/*, ClockDomain.current*/)
+    val lut = LookupTable(256/*bits*/, keys_num/*, ClockDomain.current*/)
 
-  lut.mem.initBigInt(Seq.fill(keys_num)(BigInt("80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f".split(" ").reverse.mkString(""), 16)))
+    lut.mem.initBigInt(Seq.fill(keys_num)(BigInt("80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f".split(" ").reverse.mkString(""), 16)))
 
-  lut.io.portA.en := True
-  lut.io.portA.wr := False
-  lut.io.portA.wrData := 0
-  lut.io.portA.addr := U(rxkey.io.receiver.asBits.subdivideIn(8 bits).reverse.asBits.resize(log2Up(keys_num)))
-  rxkey.io.key_in := lut.io.portA.rdData
-
-  lut.io.portB.en := True
-  lut.io.portB.wr := False
-  lut.io.portB.wrData := 0
-  lut.io.portB.addr := 0
+    lut.io.portA.en := True
+    lut.io.portA.wr := False
+    lut.io.portA.wrData := 0
+    lut.io.portA.addr := rxkey_addr
+    rxkey.io.key_in := lut.io.portA.rdData
+    lut.io.portB.en := True
+    lut.io.portB.wr := False
+    lut.io.portB.wrData := 0
+    lut.io.portB.addr := 0
   }
   // RX key lookup and update via bus controller
   (has_busctrl) generate new Area {
-  val lut = LookupTableAxi4(256/*bits*/, keys_num, busCfg)
-  lut.mem.mem.initBigInt(Seq.fill(keys_num)(BigInt("80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f".split(" ").reverse.mkString(""), 16)))
-  lut.io.en := True
-  lut.io.wr := False
-  lut.io.wrData := 0
-  ////rxkey.io.receiver.addAttribute("mark_debug")
-  val lut_address = U(rxkey.io.receiver.asBits.subdivideIn(8 bits).reverse.asBits.resize(log2Up(keys_num)))
-  ////lut_address.addAttribute("mark_debug")
-  lut.io.addr := lut_address //rxkey.io.receiver.resize(log2Up(keys_num))
-  
-  rxkey.io.key_in := lut.io.rdData
-  io.ctrl_rxkey >> lut.io.ctrlbus
+    val lut = LookupTableAxi4(256/*bits*/, keys_num, busCfg)
+    lut.mem.mem.initBigInt(Seq.fill(keys_num)(BigInt("80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f".split(" ").reverse.mkString(""), 16)))
+
+    //lut.mem.mem.initBigInt(Seq.tabulate(keys_num)(i => BigInt(i)))
+    lut.io.en := True
+    lut.io.wr := False
+    lut.io.wrData := 0
+    lut.io.addr := rxkey_addr
+    rxkey.io.key_in := lut.io.rdData
+    io.ctrl_rxkey >> lut.io.ctrlbus
   }
   // Execute the function renameAxiIO after the creation of the component
   addPrePopTask(() => CorundumFrame.renameAxiIO(io))
@@ -489,8 +490,8 @@ object BlackwireReceiveSim {
       while (packets_rcvd < 5) {
           dut.clockDomain.waitRisingEdge(8)
       }
-          dut.clockDomain.waitRisingEdge(8)
-          dut.clockDomain.waitRisingEdge(800)
+      dut.clockDomain.waitRisingEdge(8)
+      dut.clockDomain.waitRisingEdge(800)
       assert(good_packets == 4/*@TODO calculate expected good packets*/)
 
       simSuccess()
