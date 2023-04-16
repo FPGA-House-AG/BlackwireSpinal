@@ -483,10 +483,9 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     val hdr_cfg = PacketHeaderConfigureAxi4(busCfg)
     hdr_cfg.io.ctrlbus << io.ctrl_hdr
     hdr := hdr_cfg.io.header
-    // create a 20 byte (five 32-bit words) IPv4 header
-    // fp.fragment.tdata((14+2)*8, 16 bits) contains the length
-
   }
+
+  // calculate IP checksum of fp, for fc
   (!has_busctrl) generate new Area {
     hdr := (B("112'xaabbcc222222000a3506a3be0800") ##
         B("16'x4500") ## B("16'x0000") ## B("32'x00000000") ## B("32'x08110000") ## B("32'xac100032") ## B("32'xac100001") ##
@@ -495,45 +494,43 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   }
   // {eth, ip, udp,}hdr are big endian, tdata is little endian!
   eth_hdr := hdr((8+20)*8, 14*8 bits)
+  // keep IPv4 total length from fp, copy IP dst addr from endpoint lookup
   ip_hdr  := hdr((8+20-2)*8 + 0, 16 bits) ## fp.fragment.tdata((14+2)*8, 16 bits) ## hdr((8+4)*8, 3*32 bits) ## ip_dst_addr
-  udp_hdr := hdr((6)*8 + 0, 16 bits) ## udp_dst_port ## fp.fragment.tdata((14 + 20 + 4) * 8, 16 bits) ## hdr(0, 16 bits)
+  // keepUDP length from fp, copy UDP dst port from endpoint lookup
+  udp_hdr := hdr((6)*8 + 0, 16 bits) ## udp_dst_port ## fp.fragment.tdata((14 + 20 + 4) * 8, 16 bits) ## B("16'x0000"/*UDP checksum==unused*/) //hdr(0, 16 bits)
   
   // calculate IPv4 header checksum
   val ip_chk1 = UInt(20 bits)
-  ip_chk1 := U(ip_hdr(  7 downto   0) ## ip_hdr( 15 downto   8)).resize(20) +
-             U(ip_hdr( 23 downto  16) ## ip_hdr( 31 downto  24)).resize(20) +
-             U(ip_hdr( 39 downto  32) ## ip_hdr( 47 downto  40)).resize(20) +
-             U(ip_hdr( 55 downto  48) ## ip_hdr( 63 downto  56)).resize(20) +
-             U(ip_hdr( 87 downto  80) ## ip_hdr( 95 downto  88)).resize(20) +
-             U(ip_hdr(103 downto  96) ## ip_hdr(111 downto 104)).resize(20) +
-             U(ip_hdr(119 downto 112) ## ip_hdr(127 downto 120)).resize(20) +
-             U(ip_hdr(135 downto 128) ## ip_hdr(143 downto 136)).resize(20) +
-             U(ip_hdr(151 downto 144) ## ip_hdr(159 downto 152)).resize(20)
-  val ip_chk2 = UInt(17 bits)
-  /* add carries */
-  ip_chk2 := (ip_chk1 >> 16).resize(16) + (ip_chk1 & 0x0ffff).resize(16)
-  val ip_chk3 = UInt(16 bits)
-  /* add carries */
-  ip_chk3 := (ip_chk2 >> 16).resize(16) + (ip_chk2 & 0x0ffff).resize(16)
 
-  val ip_hdr_with_checksum = ip_hdr(159 downto 80) ## ~ip_chk3.asBits.subdivideIn(8 bits).reverse.asBits ## ip_hdr(63 downto 0)
+  ip_chk1 := U(ip_hdr( 15 downto   0)).resize(20) +
+             U(ip_hdr( 31 downto  16)).resize(20) +
+             U(ip_hdr( 47 downto  32)).resize(20) +
+             U(ip_hdr( 63 downto  48)).resize(20) +
+          // U(ip_hdr( 79 downto  64)).resize(20) + // checksum field
+             U(ip_hdr( 95 downto  80)).resize(20) +
+             U(ip_hdr(111 downto  96)).resize(20) +
+             U(ip_hdr(127 downto 112)).resize(20) +
+             U(ip_hdr(143 downto 128)).resize(20) +
+             U(ip_hdr(159 downto 144)).resize(20)
+  val ip_chk2 = UInt(17 bits)
+  /* add cumulative carries from upper 4 bits, this again can result in 1 carry bit */
+  ip_chk2 := (ip_chk1 >> 16).resize(17) + (ip_chk1 & 0x0ffff).resize(17)
+  val ip_chk3 = UInt(16 bits)
+  /* add carry. Note worst case 17'h1ffff => 17'h10000 */
+  ip_chk3 := (ip_chk2 >> 16).resize(16) + (ip_chk2 & 0x0ffff).resize(16)
+  val ip_chk4 = ~ip_chk3
+
+  val ip_hdr_with_checksum = ip_hdr(159 downto 80) ## ip_chk4.asBits.subdivideIn(8 bits).reverse.asBits ## ip_hdr(63 downto 0)
   // create header from fp for fc
   val eth_ip_udp_hdr = RegNextWhen(eth_hdr ## ip_hdr_with_checksum ## udp_hdr, fp.firstFire)
 
   // endpoint filled in
   val fc = Stream(Fragment(CorundumFrame(corundumDataWidth)))
 
-  // NEW (see below for OLD):
-
   fc <-< fp
   when (fc.firstFire) {
     fc.fragment.tdata(0, (14 + 20 + 8) * 8 bits) := eth_ip_udp_hdr.subdivideIn(8 bits).reverse.asBits
   }
-  // OLD: @TODO @FIX @BUG
-  //fc.fragment.tdata(0, (14 + 20 + 8) * 8 bits) :=
-  //  RegNextWhen(eth_ip_udp_hdr.subdivideIn(8 bits).reverse.asBits,
-  //    fp.isFirst & fp.ready)
-
 
   // frs is fc but with remote session instead of local session
   val frs = Stream(Fragment(CorundumFrame(corundumDataWidth)))
