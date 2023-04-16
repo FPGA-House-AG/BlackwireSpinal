@@ -124,9 +124,6 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   val with_chacha = (include_chacha) generate new Area {
     // halt only after packet boundaries, start anywhere
     val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire && output_stash_too_full).clearWhen(!output_stash_too_full)
-    ////halt_input_to_chacha.addAttribute("mark_debug")
-    ////k.last.addAttribute("mark_debug")
-    ////output_stash_too_full.addAttribute("mark_debug")
 
     // p is the decrypted Type 4 payload
     val p = Stream(Fragment(Bits(cryptoDataWidth bits)))
@@ -134,10 +131,6 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
     decrypt.io.sink << k.haltWhen(halt_input_to_chacha)
     decrypt.io.key := key
     p << decrypt.io.source
-    //when (True) {
-    //  decrypt.io.source.ready := True
-    //}
-    //decrypt.io.addAttribute("mark_debug")
 
     // from the first word, extract the IPv4 Total Length field to determine packet length
     // @TODO might be 0-sized packet, then we only have the tag?
