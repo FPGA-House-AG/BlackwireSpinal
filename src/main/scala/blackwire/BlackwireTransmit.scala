@@ -204,7 +204,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   nonce_lookup_and_increment.addAttribute("mark_debug")
   // lookup nonce for w, ready on v
   (!has_busctrl) generate new Area {
-    val nonce_lookup = LookupCounter(64, peer_num * 4, 0, initRAM = true)
+    val nonce_lookup = LookupCounter(peer_num * 4, 0, (BigInt(1) << 64) - 1, restart = false, initRAM = true)
     // lookup interface
     nonce_lookup.io.lookup := nonce_lookup_and_increment
     nonce_lookup.io.increment := nonce_lookup_and_increment
@@ -213,7 +213,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     nonce := nonce_lookup.io.counter
   }
   (has_busctrl) generate new Area {
-    val nonce_lookup = LookupCounterAxi4(64, peer_num * 4, 0, initRAM = true, txcSlaveCfg)
+    val nonce_lookup = LookupCounterAxi4(peer_num * 4, 0, (BigInt(1) << 64) - 1, restart = false, initRAM = true, busCfg = txcSlaveCfg)
     // lookup interface
     nonce_lookup.io.lookup := nonce_lookup_and_increment
     nonce_lookup.io.increment := nonce_lookup_and_increment
