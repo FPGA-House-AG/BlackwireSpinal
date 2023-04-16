@@ -89,9 +89,6 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
 
   val halt_input_to_lookup = RegInit(False).setWhen(s.lastFire && mid_stash_too_full).clearWhen(!mid_stash_too_full)
 
-  //mid_stash_too_full.addAttribute("mark_debug")
-  //halt_input_to_lookup.addAttribute("mark_debug")
-
   val ping_pong_drop = Reg(Bool()).init(False)
   // i are packets with tuser(0) drop flag set if it has not a IPv4 20-byte header
   val i = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 17))
@@ -120,7 +117,6 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   // lookup peer and session index and if not found; set tuser(0) to drop.
   val a = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 17))
   a << e
-  //a.addAttribute("mark_debug")
 
   // generate a stream of tags for dropped input packets
   // tuser(0) must be set during complete packet, taken on last beat!
@@ -128,7 +124,6 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   // valid on drop flag
   cpl_drop.valid := a.lastFire & a.fragment.tuser(0)
   cpl_drop.payload := a.fragment.tuser(16 downto 1)
-  //cpl_drop.addAttribute("mark_debug")
 
   // only return tags upstream that have msb set
   val cpl_sink_active = Stream(Bits(16 bits))
@@ -160,7 +155,6 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   x_tags.payload := a.fragment.tuser(16 downto 1)
   x_tags.valid := a.lastFire & !a.tuser(0)
 
-  x.addAttribute("mark_debug")
   // queue the forward completions towards our source
   val out_tags = x_tags.queue(1024)
 
@@ -237,14 +231,13 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
       B("6'x00") ## Delay(nonce_addr, 2).resize(10) ## B("16'xDDEE"/*peer_index*/) ##
       B("24'x000000") ## B("8'x04")
   }
-  v.addAttribute("mark_debug")
 
   val txkey = Bits(256 bits)
   // lookup TX key for non-dropped packets only
   val txkey_lookup = v.firstFire & !v.payload.fragment.tuser(0)
   val txkey_lut_address = U(v.payload.fragment.tdata(63 downto 32).subdivideIn(4 slices).reverse.asBits.resize(log2Up(keys_num)))
-  txkey_lookup.addAttribute("mark_debug")
-  txkey_lut_address.addAttribute("mark_debug")
+  //txkey_lookup.addAttribute("mark_debug")
+  //txkey_lut_address.addAttribute("mark_debug")
   val key_fifo = StreamFifo(Bits(256 bits), 8/*keys in FIFO*/)
 
   (!has_busctrl) generate new Area {
@@ -273,8 +266,8 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     io.ctrl_txkey >> txkey_lut.io.ctrlbus
   }
   val txkey_thumbnail = txkey(255 downto 248) ## txkey(7 downto 0)
-  txkey.addAttribute("mark_debug")
-  txkey_thumbnail.addAttribute("mark_debug")
+  //txkey.addAttribute("mark_debug")
+  //txkey_thumbnail.addAttribute("mark_debug")
   // push looked-up (latency 2 cycles) TX keys into key_fifo
   key_fifo.io.push.valid := Delay(txkey_lookup, cycleCount = 2, init = False)
   key_fifo.io.push.payload := txkey
@@ -342,7 +335,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     //txkey_from_fifo_thumb.addAttribute("mark_debug")
 
     encrypt.io.key := key_fifo.io.pop.payload
-    encrypt.io.key.addAttribute("mark_debug")
+    //encrypt.io.key.addAttribute("mark_debug")
     // pop key from FIFO at end of packet
     key_fifo.io.pop.ready := encrypt.io.sink.lastFire
     en << encrypt.io.source
