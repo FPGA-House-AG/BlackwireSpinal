@@ -48,7 +48,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   final val p2ep_addr_width = LookupEndpointAxi4.slave_width(32 + 16, peer_num, busCfg)
   final val l2r_addr_width = LookupTableAxi4.slave_width(32, peer_num * 4, busCfg)
   final val hdr_addr_width = PacketHeaderConfigureAxi4.slave_width(busCfg)
-  final val txc_addr_width = LookupCounterAxi4.slave_width(/*64,*/keys_num, busCfg)
+  final val txc_addr_width = LookupCounterAxi4.slave_width(keys_num, (BigInt(1) << 64) - 1, busCfg)
   val txkeySlaveCfg = busCfg.copy(addressWidth = txkey_addr_width)
   val p2sSlaveCfg = busCfg.copy(addressWidth = p2s_addr_width)
   val p2epSlaveCfg = busCfg.copy(addressWidth = p2ep_addr_width)
