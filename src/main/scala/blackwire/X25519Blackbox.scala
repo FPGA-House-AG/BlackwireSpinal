@@ -76,7 +76,7 @@ case class X25519Spinal() extends Component {
 //
 //  io.source <-< e
 
-   io.sink.ready := io.source.ready
+   io.sink.ready          := vhdl.io.source_tready
 
    io.source.valid        := vhdl.io.source_tvalid
    io.source.fragment     := B(vhdl.io.source_tdata)//.subdivideIn(8 bits).reverse.asBits
@@ -113,7 +113,8 @@ case class X25519Spinal() extends Component {
     }
 
     // register kP result on valid
-    val kP_word = RegNextWhen(io.source.payload, io.source.valid)
+    // @TODO how could this fail on io.source.payload??
+    val kP_word = RegNextWhen(io.source.payload.fragment, io.source.valid)
 
     busCtrl.readMultiWord(kP_word, 0x100, documentation = null)
     val read_pulse = Reg(Bool()) init(False)
@@ -126,13 +127,20 @@ case class X25519Spinal() extends Component {
     val busy = RegInit(False)
     busy.setWhen(!busy & write_pulse).clearWhen(busy & read_pulse)
 
+    u_k_word.addAttribute("mark_debug")
+    kP_word.addAttribute("mark_debug")
+    kP_valid.addAttribute("mark_debug")
+    busy.addAttribute("mark_debug")
+    read_pulse.addAttribute("mark_debug")
+    write_pulse.addAttribute("mark_debug")
+
     io.sink.valid := write_pulse & !busy
     io.sink.last := write_pulse & !busy
 
     // take the result (x25519 always assume we take it, it ignores ready)
     io.source.ready := read_pulse
 
-    val status = B("30'x0") ## busy ## kP_valid
+    val status = B("29'x0") ## io.sink.ready ## busy ## kP_valid
     busCtrl.read(status, 0x000, documentation = null)
   }
 }
@@ -178,7 +186,7 @@ object X25519Axi4Sim {
   def main(args: Array[String]) : Unit = {
     SimConfig
     // GHDL can simulate VHDL
-    .withGhdl.withWave
+    .withGhdl//.withFstWave
     //.addRunFlag support is now in SpinalHDL dev branch
     .addRunFlag("--unbuffered") //.addRunFlag("--disp-tree=inst")
     .addRunFlag("--ieee-asserts=disable").addRunFlag("--assert-level=none")
@@ -267,6 +275,17 @@ object X25519Axi4Sim {
       dut.clockDomain.waitRisingEdge()
       dut.clockDomain.waitRisingEdge()
 
+      // read status upfront
+      dut.io.ctrlbus.ar.valid #= true
+      dut.io.ctrlbus.ar.payload.addr.assignBigInt(0)
+      dut.io.ctrlbus.r.ready #= true
+      dut.clockDomain.waitSamplingWhere(dut.io.ctrlbus.r.valid.toBoolean)
+      val start_status = dut.io.ctrlbus.r.payload.data.toBigInt
+      printf("status = %d\n", start_status.toBigInt)
+      dut.io.ctrlbus.ar.valid #= false
+      dut.clockDomain.waitRisingEdge()
+      dut.clockDomain.waitRisingEdge()
+
       var counter = 0
       val readThread = fork {
         counter = counter + 1
@@ -291,7 +310,9 @@ object X25519Axi4Sim {
         dut.io.ctrlbus.aw.valid #= true
         dut.io.ctrlbus.aw.payload.addr.assignBigInt(address)
         dut.io.ctrlbus.w.valid #= true
-        dut.io.ctrlbus.w.payload.data.assignBigInt((BigInt(kP, 16) >> ((15-i)*32)) & BigInt("00ffffffff", 16))
+        val value = (BigInt(kP, 16) >> ((15-i)*32)) & BigInt("00ffffffff", 16)
+        printf("value = 0x%08x to address 0x%08x\n", value, address)
+        dut.io.ctrlbus.w.payload.data.assignBigInt(value)
         dut.clockDomain.waitSamplingWhere(dut.io.ctrlbus.aw.ready.toBoolean && dut.io.ctrlbus.w.ready.toBoolean)
         dut.io.ctrlbus.aw.valid #= false
         dut.io.ctrlbus.w.valid #= false
@@ -302,24 +323,29 @@ object X25519Axi4Sim {
 
       var status = BigInt(2)
       val address = 0x0
+      var iteration = 0
       // poll while busy but no valid result yet
       while ((status & 3) == 2) {
         dut.io.ctrlbus.ar.valid #= true
         dut.io.ctrlbus.ar.payload.addr.assignBigInt(address)
         dut.io.ctrlbus.r.ready #= true
         dut.clockDomain.waitSamplingWhere(dut.io.ctrlbus.r.valid.toBoolean)
-        val status = dut.io.ctrlbus.r.payload.data
+        status = dut.io.ctrlbus.r.payload.data.toBigInt
+        printf("status = %d, iteration = %d (result expected after 364 iterations)\n", status.toBigInt, iteration)
         dut.io.ctrlbus.ar.valid #= false
         dut.clockDomain.waitRisingEdge(100)
+        iteration = iteration + 1
       }
 
-      for (i <- 0 until 16) {
-        val address = 0x100 + (15-i) * 4
+      // read result
+      for (i <- 0 until 8) {
+        val address = 0x100 + (7-i) * 4
         dut.io.ctrlbus.r.ready #= true
         dut.io.ctrlbus.ar.valid #= true
         dut.io.ctrlbus.ar.payload.addr.assignBigInt(address)
         dut.clockDomain.waitSamplingWhere(dut.io.ctrlbus.r.valid.toBoolean)
         dut.io.ctrlbus.ar.valid #= false
+        printf("value = 0x%08x at address 0x%08x\n",dut.io.ctrlbus.r.payload.data.toBigInt, address)
         dut.clockDomain.waitRisingEdge()
       }
     }
