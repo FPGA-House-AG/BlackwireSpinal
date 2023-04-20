@@ -513,7 +513,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   ip_chk3 := (ip_chk2 >> 16).resize(16) + (ip_chk2 & 0x0ffff).resize(16)
   val ip_chk4 = ~ip_chk3
 
-  val ip_hdr_with_checksum = ip_hdr(159 downto 80) ## ip_chk4.asBits.subdivideIn(8 bits).reverse.asBits ## ip_hdr(63 downto 0)
+  val ip_hdr_with_checksum = ip_hdr(159 downto 80) ## ip_chk4.asBits /*.subdivideIn(8 bits).reverse.asBits*/ ## ip_hdr(63 downto 0)
   // create header from fp for fc
   val eth_ip_udp_hdr = RegNextWhen(eth_hdr ## ip_hdr_with_checksum ## udp_hdr, fp.firstFire)
 
