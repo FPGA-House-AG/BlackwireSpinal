@@ -44,8 +44,11 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
     val ctrl_rxkey = slave(Axi4(rxkeySlaveCfg))
     // IP address lookup
     val source_ipl = master Flow Bits(32 bits)
-    val sink_ipl = slave Flow Bits(32 bits)
+    val sink_ipl = slave Flow UInt(11 bits)
   }
+
+  io.source_ipl.addAttribute("mark_debug")
+  io.sink_ipl.addAttribute("mark_debug")
 
   // to measure latencies in simulation
   val cycle = Reg(UInt(32 bits)).init(0)
