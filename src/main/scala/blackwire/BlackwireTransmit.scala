@@ -165,6 +165,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   val session = UInt(2 bits)
   val peer_addr = U(x.payload.tdata(7 downto 0))
   peer_addr.addAttribute("mark_debug")
+  session.addAttribute("mark_debug")
   (!has_busctrl) generate new Area {
     val p2s_lut = LookupTable(2/*bits*/, peer_num)
     p2s_lut.mem.initBigInt(Seq.tabulate(peer_num)(n => BigInt(n % 3)))
@@ -200,6 +201,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   val nonce_addr = session @@ Delay(peer_addr, 2)
   // lookup only for packets that are not to be dropped
   val nonce_lookup_and_increment = w.firstFire & !w.tuser(0)
+  nonce.addAttribute("mark_debug")
   nonce_addr.addAttribute("mark_debug")
   nonce_lookup_and_increment.addAttribute("mark_debug")
   // lookup nonce for w, ready on v
