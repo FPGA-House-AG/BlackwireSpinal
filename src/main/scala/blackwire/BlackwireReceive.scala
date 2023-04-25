@@ -42,6 +42,9 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
 
     val source_handshake = master Stream Fragment(CorundumFrame(corundumDataWidth))
     val ctrl_rxkey = slave(Axi4(rxkeySlaveCfg))
+    // IP address lookup
+    val source_ipl = master Flow Bits(32 bits)
+    val sink_ipl = slave Flow Bits(32 bits)
   }
 
   // to measure latencies in simulation
@@ -180,6 +183,12 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   val outstash = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 32, 24)
   outstash.io.sink << c
   r << outstash.io.source
+
+  // lookup peer that belongs to this IP address
+  val ip_addr = r.payload.fragment.tdata(16 * 8, 32 bits)
+  val ip_addr_lookup = r.firstFire
+  io.source_ipl.valid := ip_addr_lookup
+  io.source_ipl.payload := ip_addr
 
   output_stash_too_full := !outstash.io.sink.ready
 

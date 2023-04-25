@@ -78,6 +78,9 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     val cpl_source = master(Stream(Bits(16 bits)))
     // from CMAC
     val cpl_sink = slave(Stream(Bits(16 bits)))
+    // IP address lookup
+    val source_ipl = master Flow Bits(32 bits)
+    val sink_ipl = slave Flow Bits(32 bits)
   }
 
   // stash store-and-forward, so that packets are consecutive in the lookup flow part
@@ -105,6 +108,10 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   when (i.lastFire) {
     ping_pong_drop := !ping_pong_drop
   }
+
+  // lookup IPv4 addresses
+  io.source_ipl.valid := i.firstFire && !drop
+  io.source_ipl.payload := i.payload.fragment.tdata((14 + 16) * 8, 32 bits)
 
   // e is i, but Ethernet header is replaced by Wireguard Type 4 like header,
   // which is 2 bytes longer, thus can add back-pressure which is no problem here.
