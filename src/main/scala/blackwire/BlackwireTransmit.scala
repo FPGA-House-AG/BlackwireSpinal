@@ -83,8 +83,8 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     val sink_ipl = slave Flow UInt(11 bits)
   }
 
-  io.source_ipl.addAttribute("mark_debug")
-  io.sink_ipl.addAttribute("mark_debug")
+  ////io.source_ipl.addAttribute("mark_debug")
+  ////io.sink_ipl.addAttribute("mark_debug")
 
   // stash store-and-forward, so that packets are consecutive in the lookup flow part
   val s = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 17))
@@ -112,10 +112,10 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     ping_pong_drop := !ping_pong_drop
   }
 
-  // lookup IPv4 addresses
-  io.source_ipl.valid := i.firstFire && !drop
-  /* lookup destination IP address */
-  io.source_ipl.payload := i.payload.fragment.tdata((14 + 16) * 8, 32 bits)
+  // lookup IPv4 addresses but only for non-dropped packets
+  io.source_ipl.valid := RegNext(i.firstFire && !drop)
+  /* lookup destination IP address for Cryptokey Routing */
+  io.source_ipl.payload := RegNext(i.payload.fragment.tdata((14 + 16) * 8, 32 bits).subdivideIn(8 bits).reverse.asBits)
 
   // e is i, but Ethernet header is replaced by Wireguard Type 4 like header,
   // which is 2 bytes longer, thus can add back-pressure which is no problem here.
@@ -175,8 +175,8 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   // peer index to session index (adds prev, current, next) for x to w
   val session = UInt(2 bits)
   val peer_addr = U(x.payload.tdata(7 downto 0))
-  peer_addr.addAttribute("mark_debug")
-  session.addAttribute("mark_debug")
+  //peer_addr.addAttribute("mark_debug")
+  //session.addAttribute("mark_debug")
   (!has_busctrl) generate new Area {
     val p2s_lut = LookupTable(2/*bits*/, peer_num)
     p2s_lut.mem.initBigInt(Seq.tabulate(peer_num)(n => BigInt(n % 3)))
@@ -212,9 +212,9 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   val nonce_addr = session @@ Delay(peer_addr, 2)
   // lookup only for packets that are not to be dropped
   val nonce_lookup_and_increment = w.firstFire & !w.tuser(0)
-  nonce.addAttribute("mark_debug")
-  nonce_addr.addAttribute("mark_debug")
-  nonce_lookup_and_increment.addAttribute("mark_debug")
+  //nonce.addAttribute("mark_debug")
+  //nonce_addr.addAttribute("mark_debug")
+  //nonce_lookup_and_increment.addAttribute("mark_debug")
   // lookup nonce for w, ready on v
   (!has_busctrl) generate new Area {
     val nonce_lookup = LookupCounter(peer_num * 4, 0, (BigInt(1) << 64) - 1, restart = false, initRAM = true)
@@ -484,7 +484,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   val udp_hdr = Bits( 8 * 8 bits)
 
   val hdr = Bits((14 + 20 + 8) * 8 bits)
-  hdr.addAttribute("mark_debug")
+  //hdr.addAttribute("mark_debug")
   (has_busctrl) generate new Area {
     val hdr_cfg = PacketHeaderConfigureAxi4(busCfg)
     hdr_cfg.io.ctrlbus << io.ctrl_hdr

@@ -47,8 +47,8 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
     val sink_ipl = slave Flow UInt(11 bits)
   }
 
-  io.source_ipl.addAttribute("mark_debug")
-  io.sink_ipl.addAttribute("mark_debug")
+  //io.source_ipl.addAttribute("mark_debug")
+  //io.sink_ipl.addAttribute("mark_debug")
 
   // to measure latencies in simulation
   val cycle = Reg(UInt(32 bits)).init(0)
@@ -187,11 +187,11 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   outstash.io.sink << c
   r << outstash.io.source
 
-  // lookup peer that belongs to this IP address
-  val ip_addr = r.payload.fragment.tdata(16 * 8, 32 bits)
+  // lookup peer that belongs to this source IP address
+  val ip_addr = r.payload.fragment.tdata(12 * 8, 32 bits).subdivideIn(8 bits).reverse.asBits
   val ip_addr_lookup = r.firstFire
-  io.source_ipl.valid := ip_addr_lookup
-  io.source_ipl.payload := ip_addr
+  io.source_ipl.valid := RegNext(ip_addr_lookup)
+  io.source_ipl.payload := RegNext(ip_addr)
 
   output_stash_too_full := !outstash.io.sink.ready
 
