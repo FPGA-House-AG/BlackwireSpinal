@@ -127,7 +127,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
 
   // lookup peer and session index and if not found; set tuser(0) to drop.
   val a = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 17))
-  a << e
+  a <-< e
 
   // generate a stream of tags for dropped input packets
   // tuser(0) must be set during complete packet, taken on last beat!
@@ -163,11 +163,11 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   a.ready := x.ready
   // put x TX tags only for undropped packets in separate stream
   val x_tags = Stream(Bits(16 bits))
-  x_tags.payload := a.fragment.tuser(16 downto 1)
-  x_tags.valid := a.lastFire & !a.tuser(0)
+  x_tags.payload := RegNext(a.fragment.tuser(16 downto 1))
+  x_tags.valid := RegNext(a.lastFire & !a.tuser(0))
 
   // queue the forward completions towards our source
-  val out_tags = x_tags.queue(1024)
+  val out_tags = x_tags.queue(1024).stage()
 
   val w = Stream Fragment(CorundumFrame(corundumDataWidth))
   w << x.stage().stage()
@@ -582,9 +582,9 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   val out_stash = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 32, 24)
   out_stash.io.sink << frs
   out_stash_too_full := !out_stash.io.sink.ready
-  ftx << out_stash.io.source
+  ftx <-< out_stash.io.source
   
-  // t is ftx, but with TX tags re-addedin tuser[16:1], those were split-off early in TX path
+  // t is ftx, but with TX tags re-added in tuser[16:1], those were split-off early in TX path
   val t = Stream(Fragment(CorundumFrame(corundumDataWidth, userWidth = 17)))
   t.valid := ftx.valid
   t.last := ftx.last
