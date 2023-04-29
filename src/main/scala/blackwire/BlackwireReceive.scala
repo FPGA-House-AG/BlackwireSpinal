@@ -487,16 +487,17 @@ object BlackwireReceiveSim {
         // assert full packet is sent
         assert(remaining == 0)
         dut.io.sink.valid #= false
+        printf("packet #%d sent\n", packet_number)
         dut.clockDomain.waitRisingEdge(inter_packet_gap)
         packet_number += 1
-        printf("packet #%d\n", packet_number)
       } // while remaining_packets
+      printf("Done sending packets\n")
 
-      while (packets_rcvd < 5) {
+      while (packets_rcvd < 4) {
           dut.clockDomain.waitRisingEdge(8)
       }
+      printf("Received all expected packets\n")
       dut.clockDomain.waitRisingEdge(8)
-      dut.clockDomain.waitRisingEdge(800)
       assert(good_packets == 4/*@TODO calculate expected good packets*/)
 
       simSuccess()
