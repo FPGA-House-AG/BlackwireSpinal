@@ -68,8 +68,9 @@ case class ChaCha20Poly1305DecryptSpinal() extends Component {
   // pass-through READY outside of the VHDL block, not READY after LAST
   io.sink.ready             := d.ready & !after_last
   vhdl.io.in_key  := U(io.key)
-
-  d.valid                := vhdl.io.source_tvalid
+ 
+  // for 0-sized output, AEAD_decryption_wrapper* will pulse VALID=1 during TAG_PULSE=1
+  d.valid                := vhdl.io.source_tvalid & !vhdl.io.tag_pulse
   d.payload.fragment     := B(vhdl.io.source_tdata).subdivideIn(8 bits).reverse.asBits
   d.payload.last         := vhdl.io.source_tlast
   vhdl.io.source_tready  := d.ready
