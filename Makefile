@@ -19,11 +19,11 @@
 build: rtl
 
 # CI/CD runs "make test"
-test: build formal sim_extract sim_counter code_analysis
+test: build sim_receive code_analysis
 
 code_analysis:
 	grep -rne '.m2sPipe().s2mPipe()' src/main/scala && \
-	echo "Check reverse use of .m2sPipe().s2mPipe()." || true
+	echo "Check reverse use of .s2mPipe().m2sPipe()." || true
 
 # generate Verilog, VHDL and SystemVerilog RTL
 # this requires external VHDL modules
@@ -41,6 +41,12 @@ rtl: src/main/scala/blackwire/BlackwireWireguardType4.scala
 	set -e
 	sbt " \
 	runMain blackwire.BlackwireWireguardType4; \
+	"
+
+sim_receive:
+	set -e
+	sbt " \
+	runMain blackwire.BlackwireReceiveSim; \
 	"
 
 clean:
