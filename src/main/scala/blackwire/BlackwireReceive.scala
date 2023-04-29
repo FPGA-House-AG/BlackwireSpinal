@@ -30,9 +30,12 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
 
   // 1534 rounded up 2048/(512/8) == 32
 
+  final val session_addr_width = LookupTableAxi4.slave_width(16, keys_num, busCfg)
+  println("session_addr_width = " + session_addr_width)
   final val rxkey_addr_width = LookupTableAxi4.slave_width(256, keys_num, busCfg)
   println("rxkey_addr_width = " + rxkey_addr_width)
 
+  val sessionSlaveCfg = busCfg.copy(addressWidth = session_addr_width)
   val rxkeySlaveCfg = busCfg.copy(addressWidth = rxkey_addr_width)
 
   val io = new Bundle {
@@ -41,11 +44,13 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
     val source = master Stream Fragment(CorundumFrame(corundumDataWidth))
 
     val source_handshake = master Stream Fragment(CorundumFrame(corundumDataWidth))
+    val ctrl_session = slave(Axi4(sessionSlaveCfg))
     val ctrl_rxkey = slave(Axi4(rxkeySlaveCfg))
     // IP address lookup
     val source_ipl = master Flow Bits(32 bits)
     val sink_ipl = slave Flow UInt(11 bits)
   }
+  io.sink.valid.addAttribute("mark_debug")
 
   //io.source_ipl.addAttribute("mark_debug")
   //io.sink_ipl.addAttribute("mark_debug")
@@ -56,7 +61,7 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
 
   // x is TDATA+TKEEP Ethernet frame from Corundum
   val x = Stream Fragment(CorundumFrame(corundumDataWidth))
-  x << io.sink
+  x << io.sink.s2mPipe().m2sPipe()
 
   // fork x into two streams, Wireguard Type4 and other packet
   val type4_demux = new CorundumFrameDemuxWireguardType4(corundumDataWidth)
@@ -91,6 +96,59 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   w << headers.io.source
   val w_length = headers.io.source_length
 
+  // lookup the given peer session on w, for www
+  val session_lookup = w.firstFire
+  val session_addr = U(w.payload.fragment(4*8, 32 bits).resize(log2Up(keys_num)))
+  val session_random = Bits(16 bits)
+
+  val has_busctrl = true
+
+  (!has_busctrl) generate new Area {
+    val lut = LookupTable(16/*bits*/, keys_num)
+
+    lut.mem.initBigInt(Seq.tabulate(keys_num)(i => BigInt(i)))
+
+    lut.io.portA.en := True
+    lut.io.portA.wr := False
+    lut.io.portA.wrData := 0
+    lut.io.portA.addr := session_addr
+    session_random := lut.io.portA.rdData
+    lut.io.portB.en := True
+    lut.io.portB.wr := False
+    lut.io.portB.wrData := 0
+    lut.io.portB.addr := 0
+  }
+  (has_busctrl) generate new Area {
+    val lut = LookupTableAxi4(16/*bits*/, keys_num, busCfg)
+    lut.mem.mem.initBigInt(Seq.tabulate(keys_num)(i => BigInt(i)))
+    lut.io.en := True
+    lut.io.wr := False
+    lut.io.wrData := 0
+    lut.io.addr := session_addr
+    session_random := lut.io.rdData
+    lut.io.ctrlbus << io.ctrl_session
+  }
+
+  val ww = Stream(Fragment(Bits(corundumDataWidth bits)))
+  ww <-< w
+  val ww_length = RegNextWhen(w_length, w.ready)
+
+  val www = Stream(Fragment(Bits(corundumDataWidth bits)))
+  www <-< ww
+  val www_length = RegNextWhen(ww_length, ww.ready)
+
+  // 0000000000000007.59250001.00000004 [0]
+  //                  ====[16]
+  val receiver_remainder = www.payload.fragment(4*8, 32 bits)/*.subdivideIn(8 bits).reverse.asBits*/ >> 16/*TODO calc*/
+  val session_valid = (session_random === receiver_remainder)
+
+  w.addAttribute("mark_debug")
+  session_lookup.addAttribute("mark_debug")
+  session_addr.addAttribute("mark_debug")
+  session_random.addAttribute("mark_debug")
+  receiver_remainder.addAttribute("mark_debug")
+  session_valid.addAttribute("mark_debug")
+
   //val meta_fifo = StreamFifo(Bits(32/*session*/ + 32/*IP*/ + 16/*UDP*/ bits), 8)
 
 
@@ -100,8 +158,8 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   // z is the Type 4 packet in 128 bits
   val z = Stream(Fragment(Bits(cryptoDataWidth bits)))
   val downsizer = AxisDownSizer(corundumDataWidth, cryptoDataWidth)
-  downsizer.io.sink << w
-  downsizer.io.sink_length := w_length
+  downsizer.io.sink << www
+  downsizer.io.sink_length := www_length
   z << downsizer.io.source
   val z_length = downsizer.io.source_length
 
@@ -210,13 +268,11 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
 
   //printf("x to r = %d clock cycles.\n", LatencyAnalysis(x.valid, r.valid))
 
-  val has_busctrl = true
-
   val rxkey_lookup = rxkey.io.source.firstFire
   val rxkey_addr = U(rxkey.io.receiver.asBits.subdivideIn(8 bits).reverse.asBits.resize(log2Up(keys_num)))
 
   (!has_busctrl) generate new Area {
-    val lut = LookupTable(256/*bits*/, keys_num/*, ClockDomain.current*/)
+    val lut = LookupTable(256/*bits*/, keys_num)
 
     lut.mem.initBigInt(Seq.fill(keys_num)(BigInt("80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9a 9b 9c 9d 9e 9f".split(" ").reverse.mkString(""), 16)))
 
@@ -241,7 +297,7 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
     lut.io.wrData := 0
     lut.io.addr := rxkey_addr
     rxkey.io.key_in := lut.io.rdData
-    io.ctrl_rxkey >> lut.io.ctrlbus
+    lut.io.ctrlbus << io.ctrl_rxkey
   }
   // Execute the function renameAxiIO after the creation of the component
   addPrePopTask(() => CorundumFrame.renameAxiIO(io))
