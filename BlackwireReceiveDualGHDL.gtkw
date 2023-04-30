@@ -1,0 +1,163 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Sun Apr 30 18:25:23 2023
+[*]
+[dumpfile] "/project-on-host/BlackwireSpinal/simWorkspace/BlackwireReceiveDual/test.vcd"
+[dumpfile_mtime] "Sun Apr 30 18:14:29 2023"
+[dumpfile_size] 37819867
+[savefile] "/project-on-host/BlackwireSpinal/BlackwireReceiveDualGHDL.gtkw"
+[timestart] 357
+[size] 3513 1802
+[pos] -1 -1
+*-7.000000 740 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] blackwirereceivedual.
+[treeopen] blackwirereceivedual.with_chacha_decrypt.
+[sst_width] 582
+[signals_width] 1409
+[sst_expanded] 1
+[sst_vpaned_height] 565
+@28
+blackwirereceivedual.clk
+@200
+-
+@22
+blackwirereceivedual.y_length[11:0]
+blackwirereceivedual.y_payload_fragment[511:0]
+@28
+blackwirereceivedual.y_payload_last
+blackwirereceivedual.y_ready
+blackwirereceivedual.y_valid
+@200
+-
+@22
+blackwirereceivedual.yyy_length[11:0]
+blackwirereceivedual.yyy_payload_fragment[511:0]
+@28
+blackwirereceivedual.yyy_payload_last
+blackwirereceivedual.yyy_ready
+blackwirereceivedual.yyy_valid
+@200
+-
+@22
+blackwirereceivedual.w_payload_fragment[511:0]
+@28
+blackwirereceivedual.w_ready
+blackwirereceivedual.w_valid
+blackwirereceivedual.w_payload_first
+blackwirereceivedual.w_payload_last
+@200
+-
+@22
+blackwirereceivedual.session_addr[9:0]
+@28
+blackwirereceivedual.session_lookup
+@22
+blackwirereceivedual.session_random[15:0]
+blackwirereceivedual.receiver_remainder[15:0]
+@28
+blackwirereceivedual.session_result
+blackwirereceivedual.session_valid
+blackwirereceivedual.endpoint_fifos_0_io_push_valid
+blackwirereceivedual.endpoint_fifos_1_io_push_valid
+@200
+-
+-
+@28
+blackwirereceivedual.rxkey_fifos_0_io_push_valid
+blackwirereceivedual.rxkey_fifos_1_io_push_valid
+@200
+-
+@28
+blackwirereceivedual.rxkey_fifos_0_io_pop_ready
+blackwirereceivedual.rxkey_fifos_0_io_pop_valid
+blackwirereceivedual.rxkey_fifos_1_io_pop_ready
+blackwirereceivedual.rxkey_fifos_1_io_pop_valid
+@200
+-
+@22
+blackwirereceivedual.instash.sink_tdata[511:0]
+blackwirereceivedual.instash.sink_tkeep[63:0]
+@28
+blackwirereceivedual.instash.sink_tlast
+blackwirereceivedual.instash.sink_tready
+blackwirereceivedual.instash.sink_tuser[0]
+blackwirereceivedual.instash.sink_tvalid
+@22
+blackwirereceivedual.instash.source_tdata[511:0]
+blackwirereceivedual.instash.source_tkeep[63:0]
+@28
+blackwirereceivedual.instash.source_tready
+blackwirereceivedual.instash.source_tvalid
+blackwirereceivedual.instash.source_tlast
+blackwirereceivedual.instash.source_tuser[0]
+@200
+-
+@22
+blackwirereceivedual.vvv_length[11:0]
+blackwirereceivedual.vvv_payload_fragment[511:0]
+@28
+blackwirereceivedual.vvv_ready
+blackwirereceivedual.vvv_valid
+blackwirereceivedual.vvv_payload_last
+@200
+-
+@22
+blackwirereceivedual.downsizer.sink_tdata[511:0]
+@29
+blackwirereceivedual.downsizer.sink_tready
+@28
+blackwirereceivedual.downsizer.sink_tlast
+blackwirereceivedual.downsizer.sink_tvalid
+@22
+blackwirereceivedual.downsizer.y_length[11:0]
+blackwirereceivedual.downsizer.source_length[11:0]
+@28
+blackwirereceivedual.k_payload_first
+@22
+blackwirereceivedual.k_payload_fragment[127:0]
+@28
+blackwirereceivedual.k_payload_last
+blackwirereceivedual.k_ready
+blackwirereceivedual.k_valid
+@22
+blackwirereceivedual.with_chacha_padded16_length_out[11:0]
+blackwirereceivedual.with_chacha_plaintext_length_out[11:0]
+@28
+blackwirereceivedual.with_chacha_l_payload_first
+blackwirereceivedual.with_chacha_l_ready
+blackwirereceivedual.with_chacha_l_valid
+@22
+blackwirereceivedual.with_chacha_l_payload_fragment[127:0]
+@28
+blackwirereceivedual.with_chacha_l_payload_last
+@200
+-
+@28
+blackwirereceivedual.with_chacha_m_payload_first
+blackwirereceivedual.with_chacha_m_ready
+blackwirereceivedual.with_chacha_m_valid
+@22
+blackwirereceivedual.with_chacha_m_payload_fragment[127:0]
+@28
+blackwirereceivedual.with_chacha_m_payload_last
+@200
+-
+@22
+blackwirereceivedual.rxkey_fifos_0_io_pop_payload[255:0]
+blackwirereceivedual.rxkey_fifos_1_io_pop_payload[255:0]
+blackwirereceivedual.with_chacha_decrypt.key[255:0]
+blackwirereceivedual.with_chacha_decrypt.sink_tdata[127:0]
+@28
+blackwirereceivedual.with_chacha_decrypt.sink_tvalid
+blackwirereceivedual.with_chacha_decrypt.sink_tlast
+blackwirereceivedual.with_chacha_decrypt.sink_tready
+@22
+blackwirereceivedual.with_chacha_decrypt.source_tdata[127:0]
+@28
+blackwirereceivedual.with_chacha_decrypt.source_tready
+blackwirereceivedual.with_chacha_decrypt.source_tvalid
+blackwirereceivedual.with_chacha_decrypt.source_tlast
+blackwirereceivedual.with_chacha_decrypt.tag_pulse
+blackwirereceivedual.with_chacha_decrypt.tag_tvalid
+[pattern_trace] 1
+[pattern_trace] 0
