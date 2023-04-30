@@ -70,7 +70,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   dropOnFull.io.drop := (readerStash.io.availability < 2)
   io.source_handshake << readerStash.io.source
 
-  // Type 4 packets go into stash
+  // Type 4 packets go into stash (@TODO why? really needed?)
   val stash = CorundumFrameStash(corundumDataWidth, fifoSize = 32)
   stash.io.sink << type4_demux.io.source_type4
 
@@ -90,7 +90,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   headers.io.sink_length := y_length
   yy << headers.io.source
   val yy_length = headers.io.source_length
-  val yy_header = headers.io.header >> 14 // @TODO extract UDP port and IP address
+  val yy_header = headers.io.header((14 + 12) * 8, 32 bits) ## headers.io.header((14 + 20) * 8, 16 bits)
 
   // lookup the given peer session on yy, for yyy
   val session_lookup = yy.firstFire
@@ -159,8 +159,8 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   // push in correct FIFO only for non-dropped packets
   endpoint_fifos(0).io.push.valid := (w.firstFire & (w.payload.fragment(1 downto 0) === B"00"))
   endpoint_fifos(1).io.push.valid := (w.firstFire & (w.payload.fragment(1 downto 0) === B"10"))
-  endpoint_fifos(0).io.push.payload := w_header(0, 16 + 32 bits)
-  endpoint_fifos(1).io.push.payload := w_header(0, 16 + 32 bits)
+  endpoint_fifos(0).io.push.payload := w_header
+  endpoint_fifos(1).io.push.payload := w_header
 
   val rxkey = Bits(256 bits)
   // lookup TX key for non-dropped packets only
@@ -169,6 +169,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   //rxkey_lookup.addAttribute("mark_debug")
   //rxkey_lut_address.addAttribute("mark_debug")
   val rxkey_fifos = Array.fill(2) { StreamFifo(Bits(256 bits), 8/*keys in FIFO*/) }
+  val nonce_fifos = Array.fill(2) { StreamFifo(Bits(64 bits), 512/*nonces in FIFO*/) }
 
   (!has_busctrl) generate new Area {
     val rxkey_lut = LookupTable(256/*bits*/, keys_num)
@@ -208,14 +209,18 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
       rxkey_fifos(index).io.push.payload := rxkey
     }
   }
-  //rxkey_fifos(0).io.push.valid := rxkey_result && (rxkey_mux === False)
-  //rxkey_fifos(1).io.push.valid := rxkey_result && (rxkey_mux ===  True)
-  //rxkey_fifos(0).io.push.payload := rxkey
-  //rxkey_fifos(1).io.push.payload := rxkey
 
   val www = Stream(Fragment(Bits(corundumDataWidth bits)))
   www <-< w.stage()
   val www_length = Delay(w_length, 2, w.ready)
+
+  // push nonces in fifos
+  nonce_fifos.zipWithIndex.foreach {
+    case (nonce_fifo, index) => {
+      nonce_fifos(index).io.push.valid   := www.firstFire && (www.payload.fragment(1).asUInt === index)
+      nonce_fifos(index).io.push.payload := www.payload.fragment(8*8, 64 bits)
+    }
+  }
 
   val v = Stream Fragment(CorundumFrame(corundumDataWidth))
   val in_corundum = AxisToCorundumFrame(corundumDataWidth)
@@ -227,18 +232,13 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   val instash = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 32, 24)
   instash.io.sink << v
 
-  // y is stash output but in TDATA+length format
+  // vvv is stash output but in TDATA+length format
   val vvv = Stream(Fragment(Bits(corundumDataWidth bits)))
   val frr = Fragment(Bits(corundumDataWidth bits))
   frr.last := instash.io.source.payload.last
   frr.fragment := instash.io.source.payload.fragment.tdata
   vvv <-< instash.io.source.translateWith(frr)
-  val vvv_length = RegNextWhen(instash.io.length, vvv.ready)
-
-  //assert(rxkey_result === www.firstFire)
-
-  //val meta_fifo = StreamFifo(Bits(32/*session*/ + 32/*IP*/ + 16/*UDP*/ bits), 8)
-
+  val vvv_length = RegNextWhen(instash.io.length, instash.io.source.firstFire)
 
   // headers.io.header(239 downto 208) contains endpoint IPv4 source adddress
   // headers.io.header(287 downto 272) contains endpoint UDP source port
@@ -266,15 +266,15 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   val with_chacha = (include_chacha) generate new Area {
     // halt only after packet boundaries, start anywhere
     val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire && output_stash_too_full).clearWhen(!output_stash_too_full)
-
-   // round up to next 16 bytes (should we always do this? -- Ethernet MTU?)
+    // round up to next 16 bytes (should we always do this? -- Ethernet MTU?)
     val padded16_length_out = RegNextWhen(((k_length + 15) >> 4) << 4, k.isFirst)
     // remove 128 bits Wireguard Type 4 header and 128 bits tag from output length
     val plaintext_length_out = padded16_length_out - 128/8 - 128/8
 
     // l is k but with length
     val l = Stream(Fragment(Bits(cryptoDataWidth bits)))
-    l <-< k
+    l <-< k.haltWhen(halt_input_to_chacha)
+  
     // write length into bytes 1-3
     when (l.isFirst) {
       l.payload.fragment(8, 24 bits).assignFromBits(plaintext_length_out.resize(24).asBits.subdivideIn(8 bits).reverse.asBits)
@@ -295,7 +295,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
     // p is the decrypted Type 4 payload
     val p = Stream(Fragment(Bits(cryptoDataWidth bits)))
     val decrypt = ChaCha20Poly1305DecryptSpinal()
-    decrypt.io.sink << m.haltWhen(halt_input_to_chacha)
+    decrypt.io.sink << m
     decrypt.io.key := rxkey
     p << decrypt.io.source
 
