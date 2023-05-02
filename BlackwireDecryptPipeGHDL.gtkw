@@ -1,0 +1,131 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Tue May  2 13:52:43 2023
+[*]
+[dumpfile] "/project-on-host/BlackwireSpinal/simWorkspace/BlackwireDecryptPipe/test.vcd"
+[dumpfile_mtime] "Tue May  2 13:50:24 2023"
+[dumpfile_size] 490325811
+[savefile] "/project-on-host/BlackwireSpinal/BlackwireDecryptPipeGHDL.gtkw"
+[timestart] 0
+[size] 3385 1926
+[pos] -1 -1
+*-12.000000 8740 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] blackwiredecryptpipe.
+[treeopen] blackwiredecryptpipe.crypto_outstash.
+[treeopen] blackwiredecryptpipe.with_chacha_decrypt.
+[treeopen] blackwiredecryptpipe.with_chacha_decrypt.vhdl.
+[sst_width] 660
+[signals_width] 1032
+[sst_expanded] 1
+[sst_vpaned_height] 609
+@28
+blackwiredecryptpipe.clk
+blackwiredecryptpipe.reset
+@24
+blackwiredecryptpipe.inflight_count_value[8:0]
+blackwiredecryptpipe.output_stash_available[7:0]
+blackwiredecryptpipe.output_stash_unreserved[10:0]
+@88024
+blackwiredecryptpipe.output_stash_unreserved[10:0]
+@28
+blackwiredecryptpipe.too_full
+@20000
+-
+@200
+-
+-Sink
+@28
+blackwiredecryptpipe.sink_tready
+blackwiredecryptpipe.sink_tvalid
+blackwiredecryptpipe.sink_tlast
+blackwiredecryptpipe.sink_tuser[0]
+@22
+blackwiredecryptpipe.sink_tdata[511:0]
+blackwiredecryptpipe.sink_tkeep[63:0]
+@200
+-
+-
+-In Stash
+@22
+blackwiredecryptpipe.crypto_instash.source_tdata[511:0]
+blackwiredecryptpipe.crypto_instash.source_tkeep[63:0]
+@28
+blackwiredecryptpipe.crypto_instash.source_tready
+blackwiredecryptpipe.crypto_instash.source_tvalid
+blackwiredecryptpipe.crypto_instash.source_tlast
+blackwiredecryptpipe.crypto_instash.source_tuser[0]
+@200
+-
+-
+-ChaCha
+@22
+blackwiredecryptpipe.with_chacha_decrypt.sink_tdata[127:0]
+@28
+blackwiredecryptpipe.with_chacha_decrypt.sink_tvalid
+blackwiredecryptpipe.with_chacha_decrypt.sink_tlast
+blackwiredecryptpipe.with_chacha_decrypt.sink_tready
+blackwiredecryptpipe.with_chacha_decrypt.sink_tready_read_buffer
+@22
+blackwiredecryptpipe.rxkey_sink[255:0]
+@28
+blackwiredecryptpipe.rxkey_sink_tready
+blackwiredecryptpipe.rxkey_sink_tvalid
+@22
+blackwiredecryptpipe.with_chacha_decrypt.key[255:0]
+@200
+-
+-VHDL SINK
+@22
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tdata[127:0]
+@28
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tlast
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tready
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tvalid
+@200
+-
+-VHDL SOURCE
+@22
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tdata[127:0]
+@28
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tready
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tvalid
+@29
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tlast
+@200
+-
+@22
+blackwiredecryptpipe.with_chacha_decrypt.source_tdata[127:0]
+@28
+blackwiredecryptpipe.with_chacha_decrypt.source_tlast
+blackwiredecryptpipe.with_chacha_decrypt.source_tready
+blackwiredecryptpipe.with_chacha_decrypt.source_tvalid
+blackwiredecryptpipe.with_chacha_decrypt.tag_tvalid
+blackwiredecryptpipe.with_chacha_decrypt.tag_pulse
+@200
+-
+-Out Stash
+@22
+blackwiredecryptpipe.crypto_outstash.sink_tdata[511:0]
+blackwiredecryptpipe.crypto_outstash.sink_tkeep[63:0]
+@28
+blackwiredecryptpipe.crypto_outstash.sink_tlast
+blackwiredecryptpipe.crypto_outstash.sink_tready
+blackwiredecryptpipe.crypto_outstash.sink_tuser[0]
+blackwiredecryptpipe.crypto_outstash.sink_tvalid
+@200
+-
+-Source
+@22
+blackwiredecryptpipe.source_tkeep[63:0]
+@28
+blackwiredecryptpipe.source_tready
+blackwiredecryptpipe.source_tvalid
+blackwiredecryptpipe.source_tlast
+@22
+blackwiredecryptpipe.source_tdata[511:0]
+@820
+blackwiredecryptpipe.source_tdata[511:0]
+@28
+blackwiredecryptpipe.source_tuser[0]
+[pattern_trace] 1
+[pattern_trace] 0
