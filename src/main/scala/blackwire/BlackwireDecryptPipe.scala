@@ -34,11 +34,6 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
 
   val crypto_instash  = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 32, 24)
 
-  val inflight_count = CounterUpDown(512)
-  when (crypto_instash.io.source.fire && !crypto_instash.io.source.isFirst && !crypto_instash.io.source.isLast) {
-    inflight_count.increment()
-  }
-
   crypto_instash.io.sink << io.sink
 
   // vvv is stash output but in TDATA+length format
@@ -57,9 +52,6 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
   z << downsizer.io.source
   val z_length = downsizer.io.source_length
 
-  // upstream back pressure feedback across ChaCha20-Poly1305
-  val output_stash_too_full = Bool()
-
   val k = Stream(Fragment(Bits(cryptoDataWidth bits)))
   k << z
   val k_length = z_length
@@ -69,9 +61,23 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
   val s_length = Reg(UInt(12 bits))
   val s_drop = Reg(Bool()) init(False)
 
+  // keep track of number of 128-bit words in the very deep ChaCha pipeline
+  val inflight_count = CounterUpDown(512)
+  // count payload words, not including the WireGuard Type 4 header nor Poly1305 tag, both one word
+  when (RegNext(downsizer.io.source.fire && !downsizer.io.source.isFirst && !downsizer.io.source.isLast)) {
+    inflight_count.increment()
+  }
+  
+  // forward declaration of feedback signal
+  val output_stash_available = UInt(log2Up(128 + 1) bits)
+  // calculate the unreserved FIFO words (i.e. available in the FIFO but not inflight towards it)
+  val output_stash_unreserved = RegNext(RegNext(output_stash_available * (512/128)) - RegNext(inflight_count.value))
+  val too_full = RegNext(output_stash_unreserved < 64/*@TODO tune down to 32 maybe but with formal verification against overflowing the FIFO*/)
+  // only halt after a packet but only if too full, always go whenever not too full (last assignment wins)
+  val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire).clearWhen(!too_full)
+
   val with_chacha = (include_chacha) generate new Area {
     // halt only after packet boundaries, start anywhere
-    val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire && output_stash_too_full).clearWhen(!output_stash_too_full)
     // round up to next 16 bytes (should we always do this? -- Ethernet MTU?)
     val padded16_length_out = RegNextWhen(((k_length + 15) >> 4) << 4, k.isFirst)
     // remove 128 bits Wireguard Type 4 header and 128 bits tag from output length
@@ -109,7 +115,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
     s_drop := (p.last & !decrypt.io.tag_valid)
   }
   val without_chacha = (!include_chacha) generate new Area { 
-    s << k.haltWhen(output_stash_too_full)
+    s << k.haltWhen(halt_input_to_chacha)
     s_length := k_length
     s_drop := False
   }
@@ -124,6 +130,11 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
   u << upsizer.io.source
   val u_length = upsizer.io.source_length
   val u_drop = upsizer.io.source_drop
+
+  when (RegNext(upsizer.io.sink.fire)) {
+    inflight_count.decrement()
+  }
+
 
   printf("Upsizer Latency = %d clock cycles.\n", LatencyAnalysis(s.valid, u.valid))
 
@@ -143,16 +154,11 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
 
   // should be room for 1534 + latency of ChaCha20 to FlowStash
   // Flow goes ready after packet last, and room for 26*64=1664 bytes
-  val crypto_outstash = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 32, 24)
+  val crypto_outstash = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 128, 24)
   crypto_outstash.io.sink << c
   r << crypto_outstash.io.source
 
-  output_stash_too_full := !crypto_outstash.io.sink.ready
-
-
-  when (crypto_outstash.io.source.fire) {
-    inflight_count.decrement()
-  }
+  output_stash_available := crypto_outstash.io.availability
 
   io.source << r
 
@@ -223,7 +229,7 @@ object BlackwireDecryptPipeSim {
     // include_chacha = true requires GHDL or XSim
     .doSim { dut =>
 
-      SimTimeout(10000)
+      //SimTimeout(30000)
 
       dut.io.sink.valid #= false
 
@@ -253,6 +259,7 @@ object BlackwireDecryptPipeSim {
       // monitor output (source) of DUT
       var good_packets = 0
       var packets_rcvd = 0
+      var tags_rcvd = 0
       val monitorThread = fork {
         while (true) {
           if (dut.with_chacha.decrypt.io.source.valid.toBoolean & dut.with_chacha.decrypt.io.source.last.toBoolean & dut.with_chacha.decrypt.io.source.ready.toBoolean) {
@@ -262,6 +269,7 @@ object BlackwireDecryptPipeSim {
           if (include_chacha) {
             if (dut.with_chacha.decrypt.io.tag_pulse.toBoolean)
             {
+              tags_rcvd += 1
               printf("dut.with_chacha.decrypt.io.tag_valid = %b\n", dut.with_chacha.decrypt.io.tag_valid.toBoolean)
               if (dut.with_chacha.decrypt.io.tag_valid.toBoolean == true) {
                 good_packets += 1
@@ -275,7 +283,7 @@ object BlackwireDecryptPipeSim {
 
       val backpressureThread = fork {
         while (true) {
-          dut.io.source.ready #= false //(Random.nextInt(100) > 95)
+          dut.io.source.ready #= (Random.nextInt(100) > 95)
           dut.clockDomain.waitSampling()
         }
       }
@@ -286,7 +294,7 @@ object BlackwireDecryptPipeSim {
 // "CCCCLLLLb315SSSS", DDDD=port 5555 (0x15b3)
 // "00000000FFFF0000"
 
-      var packet_number = 0
+      var packet_idx = 0
       val inter_packet_gap = 0
 
       val packet_contents = Vector(
@@ -300,37 +308,40 @@ object BlackwireDecryptPipeSim {
         ),
         // 0 byte WG payload, tag match
         Vector( // @TODO UDP length does not match - is ignored 
-          //       <-WG Type4> <receiver#> <-- Wireguard NONCE --> <- Poly 1305 Tag  --------------------------->
+          //      <-WG Type4> <receiver#> <-- Wireguard NONCE --> <- Poly 1305 Tag ----------------------------->
           BigInt("04 00 00 20 00 02 00 02 40 41 42 43 44 45 46 47 5a 70 0f 88 e7 87 fe 1c 1e f6 64 e6 01 ba 93 5f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         ),
         // 16 byte WG payload, tag mismatch
         Vector( // @TODO UDP length does not match - is ignored 
-          //      <-------- Ethernet header --------------> <-IPv4 header IHL=5 protocol=0x11->                         <--5555,5555,len0x172-> <-WG Type4> <receiver#> <-- Wireguard NONCE --> <- Single Beat,,
-          BigInt("01 02 03 04 05 06 01 02 03 04 05 06 08 00 45 11 22 33 44 55 66 77 88 11 00 00 A1 A2 A3 A4 B1 B2 B3 B4 15 b3 15 b3 01 72 00 00 04 00 00 20 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89".split(" ").reverse.mkString(""), 16),
-          BigInt("00 d6 f4 04 2a 8e 38 4e f4 bd f0 ed 2d 13 df 84 8e f7 0a c5 30 0b a0 45 59 ba 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
+          //      <-WG Type4> <receiver#> <-- Wireguard NONCE -->                                                 <- Poly 1305 Tag ----------------------------->
+          BigInt("04 00 00 20 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 00 d6 f4 04 2a 8e 38 4e f4 bd f0 ed 2d 13 df 84 8e f7 0a c5 30 0b a0 45 59 ba 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         ),
         // 16 byte WG payload, tag match
         Vector( // @TODO UDP length does not match - is ignored 
-          //      <-------- Ethernet header --------------> <-IPv4 header IHL=5 protocol=0x11->                         <--5555,5555,len0x172-> <-WG Type4> <receiver#> <-- Wireguard NONCE --> <- Single Beat,,
-          BigInt("01 02 03 04 05 06 01 02 03 04 05 06 08 00 45 11 22 33 44 55 66 77 88 11 00 00 A1 A2 A3 A4 B1 B2 B3 B4 15 b3 15 b3 01 72 00 00 04 00 00 20 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89".split(" ").reverse.mkString(""), 16),
-          BigInt("46 d6 f4 04 2a 8e 38 4e f4 bd f0 ed 2d 13 df 84 8e f7 0a c5 30 0b a0 45 59 ba 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
+          //      <-WG Type4> <receiver#> <-- Wireguard NONCE -->                                                 <- Poly 1305 Tag ----------------------------->
+          BigInt("04 00 00 20 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd f0 ed 2d 13 df 84 8e f7 0a c5 30 0b a0 45 59 ba 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         ),
         Vector(
-          //      <-------- Ethernet header --------------> <-IPv4 header IHL=5 protocol=0x11->                         <--5555,5555,len0x172-> <-WG Type4> <receiver#> <-- Wireguard NONCE --> <L  a  d  i  e  s
-          BigInt("01 02 03 04 05 06 01 02 03 04 05 06 08 00 45 11 22 33 44 55 66 77 88 11 00 00 A1 A2 A3 A4 B1 B2 B3 B4 15 b3 15 b3 01 72 00 00 04 00 00 80 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89".split(" ").reverse.mkString(""), 16),
-          BigInt("46 d6 f4 04 2a 8e 38 4e f4 bd 2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a 8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 aa bc 91 30 92 97".split(" ").reverse.mkString(""), 16),
-          BigInt("1d a8 f2 07 17 1c e7 84 36 08 16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 2f b1 f5 ba d2 ee".split(" ").reverse.mkString(""), 16),
-          BigInt("98 e9 64 8b b1 7f 43 2d cc e4 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
+          //      <-WG Type4> <receiver#> <-- Wireguard NONCE --> <L  a  d  i  e  s
+          BigInt("04 00 00 80 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd 2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a 8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4".split(" ").reverse.mkString(""), 16),
+          BigInt("93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0".split(" ").reverse.mkString(""), 16),
+          BigInt("46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         )
       )
+      val packet_content_lengths = Vector(64 + 64 + 32, 16+16, 16 + 16 + 16, 16 + 16 + 16, 64 + 64 + 32)
+      val packet_content_good    = Vector(true, true, false, true, true)
 
+      val packet_num = 200
       var packet_content_idx = 0
-      var packet_content_lengths = Vector(64 + 64 + 32, 4+4+8+16, 64 + 16 + 10, 64 + 16 + 10, 3 * 64 + 10)
-      var packet_content_good    = Vector(true, true, false, true, true)
+      var expected_good = 0
 
-      while (packet_number < 5) {
-        packet_content_idx = packet_number % 5
+      // iterate over all packets to be sent
+      while (packet_idx < packet_num) {
+        // choose one of the packet contents
+        packet_content_idx = packet_idx % 5
         var remaining = packet_content_lengths(packet_content_idx)
+
+        if (packet_content_good(packet_content_idx)) expected_good += 1
 
         var word_index = 0
         // iterate over frame content
@@ -371,19 +382,20 @@ object BlackwireDecryptPipeSim {
         // assert full packet is sent
         assert(remaining == 0)
         dut.io.sink.valid #= false
-        printf("packet #%d sent\n", packet_number)
+        printf("packet #%d sent\n", packet_idx)
         dut.clockDomain.waitRisingEdge(inter_packet_gap)
-        packet_number += 1
-        printf("packet #%d\n", packet_number)
+        packet_idx += 1
+        printf("packet #%d\n", packet_idx)
       } // while remaining_packets
       printf("Done sending packets\n")
 
-      while (packets_rcvd < 4) {
+      while (tags_rcvd < packet_num) {
           dut.clockDomain.waitRisingEdge(8)
       }
+      dut.clockDomain.waitRisingEdge(64)
       printf("Received all expected packets\n")
       dut.clockDomain.waitRisingEdge(8)
-      assert(good_packets == 4/*@TODO calculate expected good packets*/)
+      assert(good_packets == expected_good)
 
       simSuccess()
     }

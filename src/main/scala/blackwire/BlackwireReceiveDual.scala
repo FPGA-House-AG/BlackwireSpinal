@@ -214,11 +214,11 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   www <-< w.stage()
   val www_length = Delay(w_length, 2, w.ready)
 
-  // push nonces in fifos
+  // push nonces in fifos, required later by Replay Prevent
   nonce_fifos.zipWithIndex.foreach {
     case (nonce_fifo, index) => {
       nonce_fifos(index).io.push.valid   := www.firstFire && (www.payload.fragment(1).asUInt === index)
-      nonce_fifos(index).io.push.payload := www.payload.fragment(8*8, 64 bits)
+      nonce_fifos(index).io.push.payload := www.payload.fragment((4 + 4) * 8, 64 bits)
     }
   }
 
@@ -240,8 +240,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   vvv <-< instash.io.source.translateWith(frr)
   val vvv_length = RegNextWhen(instash.io.length, instash.io.source.firstFire)
 
-  // headers.io.header(239 downto 208) contains endpoint IPv4 source adddress
-  // headers.io.header(287 downto 272) contains endpoint UDP source port
+  // ---- Start of BlackwireDecrypt Dual Pipes
 
   // z is the Type 4 packet in 128 bits
   val z = Stream(Fragment(Bits(cryptoDataWidth bits)))
@@ -346,6 +345,8 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   val outstash = CorundumFrameFlowStash(corundumDataWidth, fifoSize = 32, 24)
   outstash.io.sink << c
   r << outstash.io.source
+
+  // ---- End of BlackwireDecrypt Dual Pipes
 
   // lookup peer that belongs to this source IP address
   val ip_addr = r.payload.fragment.tdata(12 * 8, 32 bits).subdivideIn(8 bits).reverse.asBits
