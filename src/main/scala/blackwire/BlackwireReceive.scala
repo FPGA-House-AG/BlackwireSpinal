@@ -259,7 +259,7 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   val h = Stream Fragment(CorundumFrame(corundumDataWidth))
   h << ethhdr.io.source
 
-  val fcs = CorundumFrameAppendTailer(corundumDataWidth, 4)
+  val fcs = CorundumFrameAppendTailer(corundumDataWidth, 1, 4)
   fcs.io.sink << h
   val f = Stream Fragment(CorundumFrame(corundumDataWidth))
   f << fcs.io.source

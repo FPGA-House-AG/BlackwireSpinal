@@ -1,21 +1,21 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Tue May  2 13:52:43 2023
+[*] Tue May  2 15:26:54 2023
 [*]
 [dumpfile] "/project-on-host/BlackwireSpinal/simWorkspace/BlackwireDecryptPipe/test.vcd"
-[dumpfile_mtime] "Tue May  2 13:50:24 2023"
-[dumpfile_size] 490325811
+[dumpfile_mtime] "Tue May  2 14:32:18 2023"
+[dumpfile_size] 495487707
 [savefile] "/project-on-host/BlackwireSpinal/BlackwireDecryptPipeGHDL.gtkw"
 [timestart] 0
 [size] 3385 1926
 [pos] -1 -1
-*-12.000000 8740 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-11.000000 4191 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] blackwiredecryptpipe.
 [treeopen] blackwiredecryptpipe.crypto_outstash.
 [treeopen] blackwiredecryptpipe.with_chacha_decrypt.
 [treeopen] blackwiredecryptpipe.with_chacha_decrypt.vhdl.
 [sst_width] 660
-[signals_width] 1032
+[signals_width] 1303
 [sst_expanded] 1
 [sst_vpaned_height] 609
 @28
@@ -78,19 +78,22 @@ blackwiredecryptpipe.with_chacha_decrypt.key[255:0]
 @22
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tdata[127:0]
 @28
-blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tlast
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tready
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tvalid
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.sink_tlast
 @200
 -
 -VHDL SOURCE
 @22
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tdata[127:0]
+@820
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tdata[127:0]
 @28
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tready
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tvalid
-@29
 blackwiredecryptpipe.with_chacha_decrypt.vhdl.source_tlast
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.tag_pulse
+blackwiredecryptpipe.with_chacha_decrypt.vhdl.tag_valid
 @200
 -
 @22
@@ -119,7 +122,9 @@ blackwiredecryptpipe.crypto_outstash.sink_tvalid
 blackwiredecryptpipe.source_tkeep[63:0]
 @28
 blackwiredecryptpipe.source_tready
+@29
 blackwiredecryptpipe.source_tvalid
+@28
 blackwiredecryptpipe.source_tlast
 @22
 blackwiredecryptpipe.source_tdata[511:0]
