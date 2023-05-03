@@ -14,13 +14,13 @@ import corundum._
 object BlackwireReceiveDual {
   val busconfig = Axi4Config(15, 32, 2, useLock = false, useQos = false, useRegion = false)
   def main(args: Array[String]) : Unit = {
-    val vhdlReport = Config.spinal.generateVhdl(new BlackwireReceiveDual(busconfig))
-    val verilogReport = Config.spinal.generateVerilog(new BlackwireReceiveDual(busconfig))
+    val vhdlReport = Config.spinal.generateVhdl(new BlackwireReceiveDual(busconfig, ClockDomain.current))
+    val verilogReport = Config.spinal.generateVerilog(new BlackwireReceiveDual(busconfig, ClockDomain.current))
     //vhdlReport.mergeRTLSource("merge")
   }
 }
 
-case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = true, include_chacha : Boolean = true) extends Component {
+case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has_busctrl : Boolean = true, include_chacha : Boolean = true) extends Component {
   final val corundumDataWidth = 512
   final val cryptoDataWidth = 128
   final val maxPacketLength = 1534
@@ -243,20 +243,35 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   val flow_from_pkt = instash.io.source.payload.fragment.tdata(1)
   val vv_mux_sel = RegNextWhen(flow_from_pkt, instash.io.source.firstFire)
 
-  val crypto_pipes = Array.fill(2) { BlackwireDecryptPipe(busCfg) }
+  val crypto_areas = Array.fill(2) {
+    new Area {
+      val sink = Stream Fragment(CorundumFrame(corundumDataWidth))
+      val source = Stream Fragment(CorundumFrame(corundumDataWidth))
+      val rxkey_sink = Stream(Bits(256 bits))
+      // higher clock rate for crypto
+      val crypto_turbo = new ClockingArea(cryptoCD) {
+        val decrypt = BlackwireDecryptPipe(busCfg)
+      }
+      // queue(depth, pushCD, popCD) implements a cross-clocking FIFO
+      //
+      crypto_turbo.decrypt.io.rxkey_sink << rxkey_sink.queue(8, ClockDomain.current/*push*/, cryptoCD)
+      crypto_turbo.decrypt.io.sink       << sink      .queue(8, ClockDomain.current/*push*/, cryptoCD)
+      source << crypto_turbo.decrypt.io.source.queue(8, cryptoCD/*push*/, ClockDomain.current/*pop*/)
+    }
+  }
 
-  Vec(crypto_pipes(0).io.sink, crypto_pipes(1).io.sink) <> StreamDemux(
+  Vec(crypto_areas(0).sink, crypto_areas(1).sink) <> StreamDemux(
     vv,
     U(vv_mux_sel),
     2
   )
-  crypto_pipes(0).io.rxkey_sink << rxkey_fifos(0).io.pop
-  crypto_pipes(1).io.rxkey_sink << rxkey_fifos(1).io.pop
+  crypto_areas(0).rxkey_sink << rxkey_fifos(0).io.pop
+  crypto_areas(1).rxkey_sink << rxkey_fifos(1).io.pop
 
-
+  // fragment (packet) aware multiplexer, gather packets from both crypto flows
   val crypto_mux = StreamArbiterFactory().roundRobin.build(Fragment(CorundumFrame(corundumDataWidth)), 2)
-  crypto_mux.io.inputs(0) << crypto_pipes(0).io.source
-  crypto_mux.io.inputs(1) << crypto_pipes(1).io.source
+  crypto_mux.io.inputs(0) << crypto_areas(0).source
+  crypto_mux.io.inputs(1) << crypto_areas(1).source
   val r = Stream Fragment(CorundumFrame(corundumDataWidth))
   r << crypto_mux.io.output
   val r_crypto_flow = crypto_mux.io.chosen
@@ -404,7 +419,7 @@ object BlackwireReceiveDualSim {
     .addRtl(s"../ChaCha20Poly1305/src_dsp_opt/mul_gen_0.vhd")
 
     .compile {
-      val dut = new BlackwireReceiveDual(BlackwireReceiveDual.busconfig, include_chacha = include_chacha)
+      val dut = new BlackwireReceiveDual(BlackwireReceiveDual.busconfig, cryptoCD = ClockDomain.current, include_chacha = include_chacha)
       //dut.with_chacha.decrypt.io.sink.ready.simPublic()
       //dut.with_chacha.decrypt.io.sink.valid.simPublic()
       //dut.with_chacha.decrypt.io.sink.last.simPublic()
