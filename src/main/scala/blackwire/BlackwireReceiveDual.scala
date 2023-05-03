@@ -291,10 +291,15 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, has_busctrl : Boolean = tru
   io.source_ipl.valid := RegNext(ip_addr_lookup)
   io.source_ipl.payload := RegNext(ip_addr)
 
-  // @TODO Delay here
+  // delay as much as the lookup takes
+  val rrr = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 2))
+  val lal = StreamLatency(Fragment(CorundumFrame(corundumDataWidth, userWidth = 2)), 65)
+  lal.io.sink << rr
+  rrr << lal.io.source
+  val rrr_endpoint = io.sink_ipl.payload
 
   val ethhdr = CorundumFrameInsertHeader(corundumDataWidth, userWidth = 2, 14)
-  ethhdr.io.sink << rr
+  ethhdr.io.sink << rrr
   ethhdr.io.header := B("112'x000a3506a3beaabbcc2222220800").subdivideIn(8 bits).reverse.asBits
   val h = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 2))
   h << ethhdr.io.source
