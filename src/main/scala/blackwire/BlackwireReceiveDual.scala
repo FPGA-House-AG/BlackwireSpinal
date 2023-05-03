@@ -265,9 +265,9 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
       }
       // Approach 1, SpinalHDL BlackBox wrappers around axis_async_fifo.v
       // The benefit is that axis_async_fifo.tcl should generate the correct timing constraints
-      val ccfifo_crypt = CorundumFrameCC(8, ClockDomain.current/*push*/, cryptoCD)
-      val ccfifo_plain = CorundumFrameCC(8, cryptoCD, ClockDomain.current/*push*/)
-      val ccfifo_rxkey = KeyStreamCC    (8, ClockDomain.current/*push*/, cryptoCD)
+      val ccfifo_crypt = CorundumFrameCC(128, ClockDomain.current/*push*/, cryptoCD)
+      val ccfifo_plain = CorundumFrameCC(128, cryptoCD, ClockDomain.current/*push*/)
+      val ccfifo_rxkey = KeyStreamCC    (128, ClockDomain.current/*push*/, cryptoCD)
 
       ccfifo_rxkey.io.push << rxkey_sink
       ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
