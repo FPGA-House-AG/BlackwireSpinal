@@ -50,6 +50,9 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
     val sink_ipl = slave Flow UInt(11 bits)
   }
 
+  io.sink.addAttribute("mark_debug")
+  io.source.addAttribute("mark_debug")
+
   // to measure latencies in simulation
   val cycle = Reg(UInt(32 bits)).init(0)
   cycle := cycle + 1
@@ -134,8 +137,15 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   val session_result = Delay(session_lookup, cycleCount = 2, init = False)
   // 0000000000000007.59250001.00000004 [0]
   //                  ====[16]
-  val receiver_remainder = yyy.payload.fragment(4*8, 32 bits) >> 16/*TODO calc*/
+  val receiver_remainder = yyy.payload.fragment(4 * 8, 32 bits) >> 16/*TODO calc*/
   val session_valid = (session_random === receiver_remainder)
+
+  yy.addAttribute("mark_debug")
+  session_lookup.addAttribute("mark_debug")
+  session_addr  .addAttribute("mark_debug")
+  session_random.addAttribute("mark_debug")
+  receiver_remainder.addAttribute("mark_debug")
+  session_valid.addAttribute("mark_debug")
 
   // w is yyy but fragment bit 0 is drop flag, bit 1 is crypto flow
   val w = Stream(Fragment(Bits(corundumDataWidth bits)))
@@ -150,8 +160,9 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   val flow_most_empty = Reg(UInt(1 bits)) init(0)
   val mux_select = Reg(UInt(1 bits)) init(0)
   when (yyy.lastFire) {
-    //mux_select := flow_most_empty
-    mux_select := 1 - mux_select
+    //mux_select := flow_most_empty // arbiter
+    // := 1 - mux_select // ping-pong
+    mux_select := 0 // fixed
   }
   // store chosen crypto flow in bit 1 of Type 4 header
   when (yyy.firstFire) {
@@ -243,14 +254,14 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   val flow_from_pkt = instash.io.source.payload.fragment.tdata(1)
   val vv_mux_sel = RegNextWhen(flow_from_pkt, instash.io.source.firstFire)
 
-  val crypto_areas = Array.fill(2) {
+  val crypto_areas = Array.tabulate(2)(instanceNr => {
     new Area {
       val sink = Stream Fragment(CorundumFrame(corundumDataWidth))
       val source = Stream Fragment(CorundumFrame(corundumDataWidth))
       val rxkey_sink = Stream(Bits(256 bits))
       // higher clock rate for crypto
       val crypto_turbo = new ClockingArea(cryptoCD) {
-        val decrypt = BlackwireDecryptPipe(busCfg)
+        val decrypt = BlackwireDecryptPipe(busCfg, instanceNr)
       }
       // queue(depth, pushCD, popCD) implements a cross-clocking FIFO
       //
@@ -258,7 +269,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
       crypto_turbo.decrypt.io.sink       << sink      .queue(8, ClockDomain.current/*push*/, cryptoCD)
       source << crypto_turbo.decrypt.io.source.queue(8, cryptoCD/*push*/, ClockDomain.current/*pop*/)
     }
-  }
+  })
 
   Vec(crypto_areas(0).sink, crypto_areas(1).sink) <> StreamDemux(
     vv,

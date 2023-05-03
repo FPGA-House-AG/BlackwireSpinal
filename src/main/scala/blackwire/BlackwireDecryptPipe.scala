@@ -20,7 +20,7 @@ object BlackwireDecryptPipe {
   }
 }
 
-case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = true, include_chacha : Boolean = true) extends Component {
+case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_busctrl : Boolean = true, include_chacha : Boolean = true) extends Component {
   final val corundumDataWidth = 512
   final val cryptoDataWidth = 128
   final val maxPacketLength = 1534
@@ -103,6 +103,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
     decrypt.io.sink << m
     decrypt.io.key := rxkey.payload
     p << decrypt.io.source
+    // pop key from RX key FIFO 
     rxkey.ready := m.firstFire
 
     // from the first word, extract the IPv4 Total Length field to determine packet length
@@ -113,6 +114,9 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, has_busctrl : Boolean = tru
     // @NOTE tag_valid is unknown before TLAST beats, so AND it with TLAST
     // so that we do forward an unknown drop signal on non-last beats to the output
     s_drop := (p.last & !decrypt.io.tag_valid)
+    if (instanceNr == 0) {
+      decrypt.io.addAttribute("mark_debug")
+    }
   }
   val without_chacha = (!include_chacha) generate new Area { 
     s << k.haltWhen(halt_input_to_chacha)
