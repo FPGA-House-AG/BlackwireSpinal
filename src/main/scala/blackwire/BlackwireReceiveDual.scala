@@ -263,11 +263,29 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
       val crypto_turbo = new ClockingArea(cryptoCD) {
         val decrypt = BlackwireDecryptPipe(busCfg, instanceNr)
       }
-      // queue(depth, pushCD, popCD) implements a cross-clocking FIFO
+      // Approach 1, SpinalHDL BlackBox wrappers around axis_async_fifo.v
+      // The benefit is that axis_async_fifo.tcl should generate the correct timing constraints
+      val ccfifo_crypt = CorundumFrameCC(8, ClockDomain.current/*push*/, cryptoCD)
+      val ccfifo_plain = CorundumFrameCC(8, cryptoCD, ClockDomain.current/*push*/)
+      val ccfifo_rxkey = KeyStreamCC    (8, ClockDomain.current/*push*/, cryptoCD)
+
+      ccfifo_rxkey.io.push << rxkey_sink
+      ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
+
+      ccfifo_crypt.io.push << sink
+      ccfifo_crypt.io.pop  >> crypto_turbo.decrypt.io.sink
+
+      ccfifo_plain.io.push << crypto_turbo.decrypt.io.source
+      ccfifo_plain.io.pop  >> source
+
+      // Approach 2: Same but with StreamFifoCC
+
+      // Approach 3
+      // queue(depth, pushCD, popCD) uses StreamFifoCC (a cross-clocking FIFO)
       //
-      crypto_turbo.decrypt.io.rxkey_sink << rxkey_sink.queue(8, ClockDomain.current/*push*/, cryptoCD)
-      crypto_turbo.decrypt.io.sink       << sink      .queue(8, ClockDomain.current/*push*/, cryptoCD)
-      source << crypto_turbo.decrypt.io.source.queue(8, cryptoCD/*push*/, ClockDomain.current/*pop*/)
+      //crypto_turbo.decrypt.io.rxkey_sink << rxkey_sink.queue(8, ClockDomain.current/*push*/, cryptoCD)
+      //crypto_turbo.decrypt.io.sink       << sink      .queue(8, ClockDomain.current/*push*/, cryptoCD)
+      //source << crypto_turbo.decrypt.io.source.queue(8, cryptoCD/*push*/, ClockDomain.current/*pop*/)
     }
   })
 
