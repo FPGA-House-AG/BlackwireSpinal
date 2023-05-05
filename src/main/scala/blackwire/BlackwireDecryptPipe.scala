@@ -162,6 +162,11 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
   crypto_outstash.io.sink << c
   r << crypto_outstash.io.source
 
+  // let synthesis optimize out the ready signal; i.e. make this a flow to increase clock rate
+  when (True) {
+    c.ready := True
+  }
+
   output_stash_available := crypto_outstash.io.availability
 
   io.source << r
