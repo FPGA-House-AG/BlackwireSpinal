@@ -72,9 +72,9 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
   val output_stash_available = UInt(log2Up(128 + 1) bits)
   // calculate the unreserved FIFO words (i.e. available in the FIFO but not inflight towards it)
   val output_stash_unreserved = RegNext(RegNext(output_stash_available * (512/128)) - RegNext(inflight_count.value))
-  val too_full = RegNext(output_stash_unreserved < 64/*@TODO tune down to 32 maybe but with formal verification against overflowing the FIFO*/)
+  val output_stash_too_full = RegNext(output_stash_unreserved < 64/*@TODO tune down to 32 maybe but with formal verification against overflowing the FIFO*/)
   // only halt after a packet but only if too full, always go whenever not too full (last assignment wins)
-  val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire).clearWhen(!too_full)
+  val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire).clearWhen(!output_stash_too_full)
 
   val with_chacha = (include_chacha) generate new Area {
     // round up to next 16 bytes (should we always do this? -- Ethernet MTU?)
