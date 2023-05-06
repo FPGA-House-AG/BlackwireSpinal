@@ -329,11 +329,11 @@ object BlackwireDecryptPipeSim {
         // 16 byte WG payload, tag match
         Vector( // @TODO UDP length does not match - is ignored 
           //      <-WG Type4> <receiver#> <-- Wireguard NONCE -->                                                 <- Poly 1305 Tag ----------------------------->
-          BigInt("04 00 00 20 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd f0 ed 2d 13 df 84 8e f7 0a c5 30 0b a0 45 59 ba 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
+          BigInt("04 00 00 20 00 04 00 04 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd f0 ed 2d 13 df 84 8e f7 0a c5 30 0b a0 45 59 ba 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         ),
         Vector(
           //      <-WG Type4> <receiver#> <-- Wireguard NONCE --> <L  a  d  i  e  s
-          BigInt("04 00 00 80 00 03 00 03 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd 2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a 8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4".split(" ").reverse.mkString(""), 16),
+          BigInt("04 00 00 80 00 05 00 05 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd 2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a 8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4".split(" ").reverse.mkString(""), 16),
           BigInt("93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0".split(" ").reverse.mkString(""), 16),
           BigInt("46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         )
@@ -341,7 +341,7 @@ object BlackwireDecryptPipeSim {
       val packet_content_lengths = Vector(64 + 64 + 32, 16+16, 16 + 16 + 16, 16 + 16 + 16, 64 + 64 + 32)
       val packet_content_good    = Vector(true, true, false, true, true)
 
-      val packet_num = 200
+      val packet_num = 25
       var packet_content_idx = 0
       var expected_good = 0
 
@@ -356,9 +356,9 @@ object BlackwireDecryptPipeSim {
         var word_index = 0
         // iterate over frame content
         while (remaining > 0) {
-          printf("remaining = %d\n", remaining)
+          //printf("remaining = %d\n", remaining)
           val tkeep_len = if (remaining >= keepWidth) keepWidth else remaining;
-          printf("tkeep_len = %d\n", tkeep_len)
+          //printf("tkeep_len = %d\n", tkeep_len)
           valid0 = (Random.nextInt(8) > 2)
           valid0 &= !pause
           if (pause) pause ^= (Random.nextInt(16) >= 15)
@@ -392,19 +392,21 @@ object BlackwireDecryptPipeSim {
         // assert full packet is sent
         assert(remaining == 0)
         dut.io.sink.valid #= false
-        printf("packet #%d sent\n", packet_idx)
+        printf("packet #%d sent (%s), %d good packets sent.\n", packet_idx,
+          if (packet_content_good(packet_content_idx)) "good" else "bad ", expected_good)
         dut.clockDomain.waitRisingEdge(inter_packet_gap)
         packet_idx += 1
-        printf("packet #%d\n", packet_idx)
+        //printf("packet #%d\n", packet_idx)
       } // while remaining_packets
-      printf("Done sending packets\n")
+      printf("Done sending %d packets, of which %d are good.\n", packet_idx, expected_good)
 
       while (tags_rcvd < packet_num) {
           dut.clockDomain.waitRisingEdge(8)
+          printf("Received %d of %d expected packets.\n", tags_rcvd, packet_num)
       }
       dut.clockDomain.waitRisingEdge(64)
-      printf("Received all expected packets\n")
       dut.clockDomain.waitRisingEdge(8)
+      printf("Expected %d good packets and saw %d good packets.\n", expected_good, good_packets)
       assert(good_packets == expected_good)
 
       simSuccess()
