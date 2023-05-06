@@ -36,7 +36,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
 
   crypto_instash.io.sink << io.sink
 
-  // vvv is stash output but in TDATA+length format
+  // vvv is stash output but as AXIS TDATA and packet length in bytes as a sideband signal
   val vvv = Stream(Fragment(Bits(corundumDataWidth bits)))
   val frr = Fragment(Bits(corundumDataWidth bits))
   frr.last := crypto_instash.io.source.payload.last
@@ -49,8 +49,8 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
   val downsizer = AxisDownSizer(corundumDataWidth, cryptoDataWidth)
   downsizer.io.sink << vvv
   downsizer.io.sink_length := vvv_length
-  z << downsizer.io.source
-  val z_length = downsizer.io.source_length
+  z <-< downsizer.io.source
+  val z_length = RegNextWhen(downsizer.io.source_length, z.ready)
 
   val k = Stream(Fragment(Bits(cryptoDataWidth bits)))
   k << z
