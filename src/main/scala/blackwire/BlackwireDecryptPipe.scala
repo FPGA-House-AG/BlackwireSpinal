@@ -111,9 +111,11 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
     when (p.isFirst) {
       s_length.assignFromBits(p.payload.fragment(16, 16 bits).resize(12))
     }
+    // @TODO Maybe just: s_length = RegNextWhen(p.payload.fragment(16, 16 bits).resize(12), p.firstFire)
     s <-< p
+
     // @NOTE tag_valid is unknown before TLAST beats, so AND it with TLAST
-    // so that we do forward an unknown drop signal on non-last beats to the output
+    // to prevent inserting an unknown drop signal on non-last beats to the output
     s_drop := (p.last & !decrypt.io.tag_valid)
     if (instanceNr == 0) {
       decrypt.io.addAttribute("mark_debug")
