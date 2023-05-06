@@ -77,17 +77,18 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
   val halt_input_to_chacha = RegInit(False).setWhen(k.lastFire).clearWhen(!too_full)
 
   val with_chacha = (include_chacha) generate new Area {
-    // halt only after packet boundaries, start anywhere
     // round up to next 16 bytes (should we always do this? -- Ethernet MTU?)
-    val padded16_length_out = RegNextWhen(((k_length + 15) >> 4) << 4, k.isFirst)
+    //val padded16_length_out = RegNextWhen(((k_length + 15) >> 4) << 4, k.isFirst)
     // remove 128 bits Wireguard Type 4 header and 128 bits tag from output length
-    val plaintext_length_out = padded16_length_out - 128/8 - 128/8
+    //val plaintext_length_out = padded16_length_out - 128/8 - 128/8
+
+    val plaintext_length_out = RegNextWhen((((k_length + 15/*round up*/) >> 4/*pad*/) - 1/*header*/ - 1/*tag*/) << 4/*pad*/, k.isFirst)
 
     // l is k but with length
     val l = Stream(Fragment(Bits(cryptoDataWidth bits)))
     l <-< k.haltWhen(halt_input_to_chacha)
   
-    // write length into bytes 1-3
+    // write plaintext length into bytes 1-3
     when (l.isFirst) {
       l.payload.fragment(8, 24 bits).assignFromBits(plaintext_length_out.resize(24).asBits.subdivideIn(8 bits).reverse.asBits)
     }
