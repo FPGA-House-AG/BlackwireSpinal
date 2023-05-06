@@ -265,22 +265,39 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
       }
       // Approach 1, SpinalHDL BlackBox wrappers around axis_async_fifo.v
       // The benefit is that axis_async_fifo.tcl should generate the correct timing constraints
-      val ccfifo_crypt = CorundumFrameCC(128, ClockDomain.current/*push*/, cryptoCD)
-      val ccfifo_plain = CorundumFrameCC(128, cryptoCD, ClockDomain.current/*push*/)
-      val ccfifo_rxkey = KeyStreamCC    (128, ClockDomain.current/*push*/, cryptoCD)
 
-      ccfifo_rxkey.io.push << rxkey_sink
-      ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
+      // @NOTE @TODO For synthesis, use this axis_async_fifo
+      if (has_busctrl) {
+        val ccfifo_rxkey = KeyStreamCC    (128, ClockDomain.current/*push*/, cryptoCD)
+        val ccfifo_crypt = CorundumFrameCC(128, ClockDomain.current/*push*/, cryptoCD)
+        val ccfifo_plain = CorundumFrameCC(128, cryptoCD, ClockDomain.current/*push*/)
 
-      ccfifo_crypt.io.push << sink
-      ccfifo_crypt.io.pop  >> crypto_turbo.decrypt.io.sink
+        ccfifo_rxkey.io.push << rxkey_sink
+        ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
 
-      ccfifo_plain.io.push << crypto_turbo.decrypt.io.source
-      ccfifo_plain.io.pop  >> source
+        ccfifo_crypt.io.push << sink
+        ccfifo_crypt.io.pop  >> crypto_turbo.decrypt.io.sink
 
-      // Approach 2: Same but with StreamFifoCC
+        ccfifo_plain.io.push << crypto_turbo.decrypt.io.source
+        ccfifo_plain.io.pop  >> source
+      }
+      // @NOTE @TODO For GHDL simulation, use this axis_async_fifo:
+      if (!has_busctrl) {
+        val ccfifo_rxkey = StreamFifoCC(                            Bits(256 bits), 128, ClockDomain.current/*push*/, cryptoCD)
+        val ccfifo_crypt = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, ClockDomain.current/*push*/, cryptoCD)
+        val ccfifo_plain = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, cryptoCD, ClockDomain.current/*push*/)
 
-      // Approach 3
+        ccfifo_rxkey.io.push << rxkey_sink
+        ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
+
+        ccfifo_crypt.io.push << sink
+        ccfifo_crypt.io.pop  >> crypto_turbo.decrypt.io.sink
+
+        ccfifo_plain.io.push << crypto_turbo.decrypt.io.source
+        ccfifo_plain.io.pop  >> source
+      }
+
+      // Variation of StreamFifoCC:
       // queue(depth, pushCD, popCD) uses StreamFifoCC (a cross-clocking FIFO)
       //
       //crypto_turbo.decrypt.io.rxkey_sink << rxkey_sink.queue(8, ClockDomain.current/*push*/, cryptoCD)
