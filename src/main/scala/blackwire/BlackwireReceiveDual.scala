@@ -447,6 +447,8 @@ object BlackwireReceiveDualSim {
     .addRtl(s"../ChaCha20Poly1305/src_dsp_opt/r_pow_n_kar.vhd")
     .addRtl(s"../ChaCha20Poly1305/src_dsp_opt/mul_gen_0.vhd")
 
+    //.addRtl(s"../corundum.rx.tx/fpga/lib/eth/lib/axis/rtl/axis_async_fifo.v")
+
     .compile {
       val dut = new BlackwireReceiveDual(BlackwireReceiveDual.busconfig, cryptoCD = ClockDomain.current, include_chacha = include_chacha)
       //dut.with_chacha.decrypt.io.sink.ready.simPublic()
@@ -470,6 +472,8 @@ object BlackwireReceiveDualSim {
       //Fork a process to generate the reset and the clock on the dut
       dut.clockDomain.forkStimulus(period = 10)
 
+      //ClockDomain(dut.io.coreClk, dut.io.coreReset).forkStimulus(10)
+
       var data0 = 0
 
       var last0 = false
@@ -489,7 +493,7 @@ object BlackwireReceiveDualSim {
 
       val backpressureThread = fork {
         while (true) {
-          dut.io.source.ready #= false //(Random.nextInt(100) > 95)
+          dut.io.source.ready #= true //(Random.nextInt(100) > 95)
           dut.clockDomain.waitSampling()
         }
       }
@@ -500,8 +504,6 @@ object BlackwireReceiveDualSim {
 // "CCCCLLLLb315SSSS", DDDD=port 5555 (0x15b3)
 // "00000000FFFF0000"
 
-      var packet_number = 0
-      val inter_packet_gap = 0
 
       val packet_contents = Vector(
         // RFC7539 2.8.2. Example and Test Vector for AEAD_CHACHA20_POLY1305
@@ -539,21 +541,33 @@ object BlackwireReceiveDualSim {
           BigInt("98 e9 64 8b b1 7f 43 2d cc e4 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00".split(" ").reverse.mkString(""), 16)
         )
       )
+      // meta-data about packet
 
-      var packet_content_idx = 0
       var packet_content_lengths = Vector(3 * 64 + 10, 64 + 10, 64 + 16 + 10, 64 + 16 + 10, 3 * 64 + 10)
       var packet_content_good    = Vector(true, true, false, true, true)
 
-      while (packet_number < 5) {
-        packet_content_idx = packet_number % 5
+      // configurable
+      val inter_packet_gap = 0
+      val packet_num = 25
+
+      // loop counters
+      var packet_idx = 0
+      var packet_content_idx = 0
+      var expected_good = 0
+      // iterate over all packets to be sent
+      while (packet_idx < packet_num) {
+        // choose one of the packet contents
+        packet_content_idx = packet_idx % 5
         var remaining = packet_content_lengths(packet_content_idx)
+
+        if (packet_content_good(packet_content_idx)) expected_good += 1
 
         var word_index = 0
         // iterate over frame content
         while (remaining > 0) {
-          printf("remaining = %d\n", remaining)
+          //printf("remaining = %d\n", remaining)
           val tkeep_len = if (remaining >= keepWidth) keepWidth else remaining;
-          printf("tkeep_len = %d\n", tkeep_len)
+          //printf("tkeep_len = %d\n", tkeep_len)
           valid0 = (Random.nextInt(8) > 2)
           valid0 &= !pause
           if (pause) pause ^= (Random.nextInt(16) >= 15)
@@ -587,12 +601,13 @@ object BlackwireReceiveDualSim {
         // assert full packet is sent
         assert(remaining == 0)
         dut.io.sink.valid #= false
-        printf("packet #%d sent\n", packet_number)
+        printf("packet #%d sent (%s), %d good packets sent.\n", packet_idx,
+          if (packet_content_good(packet_content_idx)) "good" else "bad ", expected_good)
         dut.clockDomain.waitRisingEdge(inter_packet_gap)
-        packet_number += 1
-        printf("packet #%d\n", packet_number)
+        packet_idx += 1
+        //printf("packet #%d\n", packet_idx)
       } // while remaining_packets
-      printf("Done sending packets\n")
+      printf("Done sending %d packets, of which %d are good.\n", packet_idx, expected_good)
 
       //while (packets_rcvd < 4) {
       //    dut.clockDomain.waitRisingEdge(8)
