@@ -180,7 +180,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   val rxkey = Bits(256 bits)
   // lookup TX key for non-dropped packets only
   val rxkey_lookup = w.firstFire && !w.payload.fragment(0)
-  val rxkey_lut_address = U(w.payload.fragment(63 downto 32).subdivideIn(4 slices).reverse.asBits.resize(log2Up(keys_num)))
+  val rxkey_lut_address = U(w.payload.fragment(4 * 8, 32 bits).resize(log2Up(keys_num)))
   //rxkey_lookup.addAttribute("mark_debug")
   //rxkey_lut_address.addAttribute("mark_debug")
   val rxkey_fifos = Array.fill(2) { StreamFifo(Bits(256 bits), 8/*keys in FIFO*/) }
