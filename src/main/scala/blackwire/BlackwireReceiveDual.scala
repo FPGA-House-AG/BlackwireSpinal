@@ -20,7 +20,7 @@ object BlackwireReceiveDual {
   }
 }
 
-case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has_busctrl : Boolean = true, include_chacha : Boolean = true) extends Component {
+case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has_busctrl : Boolean = true, include_chacha : Boolean = true, use_async : Boolean = true) extends Component {
   final val corundumDataWidth = 512
   final val cryptoDataWidth = 128
   final val maxPacketLength = 1534
@@ -267,7 +267,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
       // The benefit is that axis_async_fifo.tcl should generate the correct timing constraints
 
       // @NOTE @TODO For synthesis, use this axis_async_fifo
-      if (has_busctrl) {
+      if (use_async) {
         val ccfifo_rxkey = KeyStreamCC    (128, ClockDomain.current/*push*/, cryptoCD)
         val ccfifo_crypt = CorundumFrameCC(128, ClockDomain.current/*push*/, cryptoCD)
         val ccfifo_plain = CorundumFrameCC(128, cryptoCD, ClockDomain.current/*push*/)
@@ -282,7 +282,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
         ccfifo_plain.io.pop  >> source
       }
       // @NOTE @TODO For GHDL simulation, use this axis_async_fifo:
-      if (!has_busctrl) {
+      if (!use_async) {
         val ccfifo_rxkey = StreamFifoCC(                            Bits(256 bits), 128, ClockDomain.current/*push*/, cryptoCD)
         val ccfifo_crypt = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, ClockDomain.current/*push*/, cryptoCD)
         val ccfifo_plain = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, cryptoCD, ClockDomain.current/*push*/)
