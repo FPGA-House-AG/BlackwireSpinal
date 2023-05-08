@@ -100,7 +100,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
 
   // lookup the given peer session on yy, for yyy
   val session_lookup = yy.firstFire
-  val session_addr = U(yy.payload.fragment(4*8, 32 bits).resize(log2Up(keys_num)))
+  val session_addr = U(yy.payload.fragment(4 * 8, 32 bits).resize(log2Up(keys_num))) // @TODO
   val session_random = Bits(16 bits)
 
   (!has_busctrl) generate new Area {
