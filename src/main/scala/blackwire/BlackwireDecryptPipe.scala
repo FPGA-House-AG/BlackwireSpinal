@@ -58,8 +58,8 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
 
   // s is the decrypted Type 4 payload but with the length determined from the IP header
   val s = Stream(Fragment(Bits(cryptoDataWidth bits)))
-  val s_length = Reg(UInt(12 bits))
-  val s_drop = Reg(Bool()) init(False)
+  val s_length = UInt(12 bits)
+  val s_drop = Bool()
 
   // keep track of number of 128-bit words in the very deep ChaCha pipeline
   val inflight_count = CounterUpDown(512)
@@ -94,7 +94,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
     }
 
     val m = Stream(Fragment(Bits(cryptoDataWidth bits)))
-    m <-< l
+    m << l.s2mPipe().m2sPipe()
 
     val rxkey = io.rxkey_sink.s2mPipe().m2sPipe()
 
@@ -103,20 +103,20 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
     val decrypt = ChaCha20Poly1305DecryptSpinal()
     decrypt.io.sink << m
     decrypt.io.key := rxkey.payload
-    p << decrypt.io.source
+    p << decrypt.io.source.s2mPipe().m2sPipe()
     // pop key from RX key FIFO 
     rxkey.ready := m.firstFire
 
     // from the first word, extract the IPv4 Total Length field to determine packet length
-    when (p.isFirst) {
-      s_length.assignFromBits(p.payload.fragment(16, 16 bits).resize(12))
-    }
-    // @TODO Maybe just: s_length = RegNextWhen(p.payload.fragment(16, 16 bits).resize(12), p.firstFire)
+    //when (p.isFirst) {
+    //  s_length.assignFromBits(p.payload.fragment(16, 16 bits).resize(12))
+    //}
+    s_length := RegNextWhen(U(p.payload.fragment(16, 16 bits).resize(12)), p.firstFire)
     s <-< p
 
     // @NOTE tag_valid is unknown before TLAST beats, so AND it with TLAST
     // to prevent inserting an unknown drop signal on non-last beats to the output
-    s_drop := (p.last & !decrypt.io.tag_valid)
+    s_drop := RegNextWhen(p.last & !decrypt.io.tag_valid, p.ready).init(False)
     if (instanceNr == 0) {
       decrypt.io.addAttribute("mark_debug")
     }
