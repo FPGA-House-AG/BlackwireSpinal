@@ -268,33 +268,37 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
 
       // @NOTE @TODO For synthesis, use this axis_async_fifo
       if (use_async) {
-        val ccfifo_rxkey = KeyStreamCC    (128, ClockDomain.current/*push*/, cryptoCD)
-        val ccfifo_crypt = CorundumFrameCC(128, ClockDomain.current/*push*/, cryptoCD)
-        val ccfifo_plain = CorundumFrameCC(128, cryptoCD, ClockDomain.current/*push*/)
+        val ccfifo_rxkey = KeyStreamCC    (128, ClockDomain.current/*push*/, cryptoCD/*pop*/)
+        val ccfifo_crypt = CorundumFrameCC(128, ClockDomain.current/*push*/, cryptoCD/*pop*/)
+        val ccfifo_plain = CorundumFrameCC(128, cryptoCD/*push*/, ClockDomain.current/*pop*/)
 
-        ccfifo_rxkey.io.push << rxkey_sink
-        ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
-
-        ccfifo_crypt.io.push << sink
-        ccfifo_crypt.io.pop  >> crypto_turbo.decrypt.io.sink
-
-        ccfifo_plain.io.push << crypto_turbo.decrypt.io.source
-        ccfifo_plain.io.pop  >> source
+        // skid buffers in slowest clock domain
+        ccfifo_rxkey.io.push                                        << rxkey_sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_rxkey.io.pop                                         >> crypto_turbo.decrypt.io.rxkey_sink
+                                       
+        ccfifo_crypt.io.push                                        << sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_crypt.io.pop                                         >> crypto_turbo.decrypt.io.sink
+                                       
+        ccfifo_plain.io.push                                        << crypto_turbo.decrypt.io.source
+        ccfifo_plain.io.pop.s2mPipe().m2sPipe().s2mPipe().m2sPipe() >> source
+        printf("--- Using axis_async_fifo ---\n")
       }
       // @NOTE @TODO For GHDL simulation, use this axis_async_fifo:
       if (!use_async) {
-        val ccfifo_rxkey = StreamFifoCC(                            Bits(256 bits), 128, ClockDomain.current/*push*/, cryptoCD)
-        val ccfifo_crypt = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, ClockDomain.current/*push*/, cryptoCD)
-        val ccfifo_plain = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, cryptoCD, ClockDomain.current/*push*/)
+        val ccfifo_rxkey = StreamFifoCC(                            Bits(256 bits), 128, ClockDomain.current/*push*/, cryptoCD/*pop*/)
+        val ccfifo_crypt = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, ClockDomain.current/*push*/, cryptoCD/*pop*/)
+        val ccfifo_plain = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, cryptoCD/*push*/, ClockDomain.current/*pop*/)
 
-        ccfifo_rxkey.io.push << rxkey_sink
-        ccfifo_rxkey.io.pop  >> crypto_turbo.decrypt.io.rxkey_sink
-
-        ccfifo_crypt.io.push << sink
-        ccfifo_crypt.io.pop  >> crypto_turbo.decrypt.io.sink
-
-        ccfifo_plain.io.push << crypto_turbo.decrypt.io.source
-        ccfifo_plain.io.pop  >> source
+        // skid buffers in slowest clock domain
+        ccfifo_rxkey.io.push                                        << rxkey_sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_rxkey.io.pop                                         >> crypto_turbo.decrypt.io.rxkey_sink
+                                       
+        ccfifo_crypt.io.push                                        << sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_crypt.io.pop                                         >> crypto_turbo.decrypt.io.sink
+                                       
+        ccfifo_plain.io.push                                        << crypto_turbo.decrypt.io.source
+        ccfifo_plain.io.pop.s2mPipe().m2sPipe().s2mPipe().m2sPipe() >> source
+        printf("--- Using StreamFifoCC instead of axis_async_fifo ---\n")
       }
 
       // Variation of StreamFifoCC:
