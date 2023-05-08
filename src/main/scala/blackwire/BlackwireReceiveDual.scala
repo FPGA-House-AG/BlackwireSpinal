@@ -273,14 +273,14 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
         val ccfifo_plain = CorundumFrameCC(128, cryptoCD/*push*/, ClockDomain.current/*pop*/)
 
         // skid buffers in slowest clock domain
-        ccfifo_rxkey.io.push                                        << rxkey_sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_rxkey.io.push                                        << rxkey_sink
         ccfifo_rxkey.io.pop                                         >> crypto_turbo.decrypt.io.rxkey_sink
                                        
-        ccfifo_crypt.io.push                                        << sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_crypt.io.push                                        << sink
         ccfifo_crypt.io.pop                                         >> crypto_turbo.decrypt.io.sink
                                        
         ccfifo_plain.io.push                                        << crypto_turbo.decrypt.io.source
-        ccfifo_plain.io.pop.s2mPipe().m2sPipe().s2mPipe().m2sPipe() >> source
+        ccfifo_plain.io.pop                                         >> source
         printf("--- Using axis_async_fifo ---\n")
       }
       // @NOTE @TODO For GHDL simulation, use this axis_async_fifo:
@@ -290,14 +290,14 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
         val ccfifo_plain = StreamFifoCC(Fragment(CorundumFrame(corundumDataWidth)), 128, cryptoCD/*push*/, ClockDomain.current/*pop*/)
 
         // skid buffers in slowest clock domain
-        ccfifo_rxkey.io.push                                        << rxkey_sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_rxkey.io.push                                        << rxkey_sink
         ccfifo_rxkey.io.pop                                         >> crypto_turbo.decrypt.io.rxkey_sink
                                        
-        ccfifo_crypt.io.push                                        << sink.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+        ccfifo_crypt.io.push                                        << sink
         ccfifo_crypt.io.pop                                         >> crypto_turbo.decrypt.io.sink
                                        
         ccfifo_plain.io.push                                        << crypto_turbo.decrypt.io.source
-        ccfifo_plain.io.pop.s2mPipe().m2sPipe().s2mPipe().m2sPipe() >> source
+        ccfifo_plain.io.pop                                         >> source
         printf("--- Using StreamFifoCC instead of axis_async_fifo ---\n")
       }
 
@@ -310,18 +310,23 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
     }
   })
 
-  Vec(crypto_areas(0).sink, crypto_areas(1).sink) <> StreamDemux(
+  val crypto_sinks = Array.fill(2) { Stream Fragment(CorundumFrame(corundumDataWidth)) }
+
+  Vec(crypto_sinks(0), crypto_sinks(1)) <> StreamDemux(
     vv,
     U(vv_mux_sel),
     2
   )
-  crypto_areas(0).rxkey_sink << rxkey_fifos(0).io.pop
-  crypto_areas(1).rxkey_sink << rxkey_fifos(1).io.pop
+  crypto_areas(0).sink << crypto_sinks(0).s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+  crypto_areas(1).sink << crypto_sinks(1).s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+
+  crypto_areas(0).rxkey_sink << rxkey_fifos(0).io.pop.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+  crypto_areas(1).rxkey_sink << rxkey_fifos(1).io.pop.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
 
   // fragment (packet) aware multiplexer, gather packets from both crypto flows
   val crypto_mux = StreamArbiterFactory().roundRobin.build(Fragment(CorundumFrame(corundumDataWidth)), 2)
-  crypto_mux.io.inputs(0) << crypto_areas(0).source
-  crypto_mux.io.inputs(1) << crypto_areas(1).source
+  crypto_mux.io.inputs(0) << crypto_areas(0).source.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
+  crypto_mux.io.inputs(1) << crypto_areas(1).source.s2mPipe().m2sPipe().s2mPipe().m2sPipe()
   val r = Stream Fragment(CorundumFrame(corundumDataWidth))
   r << crypto_mux.io.output
   val r_crypto_flow = crypto_mux.io.chosen
