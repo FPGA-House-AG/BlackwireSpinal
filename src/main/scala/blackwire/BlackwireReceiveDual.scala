@@ -471,7 +471,7 @@ object BlackwireReceiveDualSim {
     //.addRtl(s"../corundum.rx.tx/fpga/lib/eth/lib/axis/rtl/axis_async_fifo.v")
 
     .compile {
-      val dut = new BlackwireReceiveDual(BlackwireReceiveDual.busconfig, cryptoCD = ClockDomain.current, include_chacha = include_chacha)
+      val dut = new BlackwireReceiveDual(BlackwireReceiveDual.busconfig, cryptoCD = ClockDomain.current, include_chacha = include_chacha, use_async = false)
       //dut.with_chacha.decrypt.io.sink.ready.simPublic()
       //dut.with_chacha.decrypt.io.sink.valid.simPublic()
       //dut.with_chacha.decrypt.io.sink.last.simPublic()
