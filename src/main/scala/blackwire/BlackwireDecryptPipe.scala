@@ -42,7 +42,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
   frr.last := crypto_instash.io.source.payload.last
   frr.fragment := crypto_instash.io.source.payload.fragment.tdata
   vvv <-< crypto_instash.io.source.translateWith(frr)
-  val vvv_length = RegNextWhen(crypto_instash.io.length, crypto_instash.io.source.firstFire)
+  val vvv_length = RegNextWhen(crypto_instash.io.length, crypto_instash.io.source.isFirst) // @TODO does this improve timig?
 
   // z is the Type 4 packet in 128 bits
   val z = Stream(Fragment(Bits(cryptoDataWidth bits)))
