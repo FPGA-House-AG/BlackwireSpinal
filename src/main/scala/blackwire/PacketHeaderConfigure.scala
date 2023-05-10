@@ -32,8 +32,19 @@ case class PacketHeaderConfigure() extends Component {
   def driveFrom(busCtrl : BusSlaveFactory) = new Area {
     assert(busCtrl.busDataWidth == 32)
 
-//0000   aa bb cc 22 22 22 b4 96 91 ad 87 88 08 00         ..."""........
+    // will be used for identification purposes @TODO
+    busCtrl.read(B"32'hDADDADDA", 0x000, documentation = null)
+    // 16'b version and 16'b revision
+    busCtrl.read(B"32'b00010001", 0x004, documentation = null)
+    // some strictly increasing (not per se incrementing) build number
+    val gitCommits = B(BigInt(SourceCodeGitCommits()), 32 bits)
+    busCtrl.read(gitCommits, 0x008, 0, null)
+    // GIT hash
+    val gitHash = B(BigInt(SourceCodeGitHash(), 16), 160 bits)
+    printf("PacketHeaderConfigure gitHash = %d\n", BigInt(SourceCodeGitHash(), 16))
+    busCtrl.readMultiWord(gitHash, 0x00c, documentation = null)
 
+//0000   aa bb cc 22 22 22 b4 96 91 ad 87 88 08 00         ..."""........
 
     val word = Reg(Bits(wordWidth bits))
     word.init((
