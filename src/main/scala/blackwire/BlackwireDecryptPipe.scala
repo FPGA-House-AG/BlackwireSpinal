@@ -103,7 +103,9 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
     val decrypt = ChaCha20Poly1305DecryptSpinal()
     decrypt.io.sink << m
     decrypt.io.key := rxkey.payload
-    p << decrypt.io.source.s2mPipe().m2sPipe()
+    // @TODO maybe put tag_valid flag in IPv4/6 header (msn of 0x45) so that it can be passed through a skid buffer?
+    p <-< decrypt.io.source//.s2mPipe().m2sPipe()
+    val p_tag_valid = RegNextWhen(decrypt.io.tag_valid, decrypt.io.source.ready).init(False)
     // pop key from RX key FIFO 
     rxkey.ready := m.firstFire
 
@@ -116,7 +118,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
 
     // @NOTE tag_valid is unknown before TLAST beats, so AND it with TLAST
     // to prevent inserting an unknown drop signal on non-last beats to the output
-    s_drop := RegNextWhen(p.last & !decrypt.io.tag_valid, p.ready).init(False)
+    s_drop := RegNextWhen(p.last & !p_tag_valid, p.ready).init(False)
     if (instanceNr == 0) {
       decrypt.io.addAttribute("mark_debug")
     }
