@@ -37,7 +37,7 @@ case class PacketHeaderConfigure() extends Component {
     // 16'b version and 16'b revision
     busCtrl.read(B"32'b00010001", 0x004, documentation = null)
     // some strictly increasing (not per se incrementing) build number
-    val gitCommits = B(BigInt(SourceCodeGitCommits()), 32 bits)
+    val gitCommits = U(BigInt(SourceCodeGitCommits()), 32 bits)
     busCtrl.read(gitCommits, 0x008, 0, null)
     // GIT hash
     val gitHash = B(BigInt(SourceCodeGitHash(), 16), 160 bits)
