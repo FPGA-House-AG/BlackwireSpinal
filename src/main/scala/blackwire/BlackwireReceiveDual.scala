@@ -138,7 +138,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   // 0000000000000007.59250001.00000004 [0]
   //                  ====[16]
   val receiver_remainder = yyy.payload.fragment(4 * 8, 32 bits) >> 16/*TODO calc*/
-  val session_valid = (session_random === receiver_remainder)
+  val session_valid = session_result & (session_random === receiver_remainder)
 
   yy.addAttribute("mark_debug")
   session_lookup.addAttribute("mark_debug")
