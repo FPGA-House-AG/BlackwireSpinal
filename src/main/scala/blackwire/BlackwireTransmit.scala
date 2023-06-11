@@ -80,7 +80,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
     val cpl_sink = slave(Stream(Bits(16 bits)))
     // IP address lookup
     val source_ipl = master Flow Bits(32 bits)
-    val sink_ipl = slave Flow UInt(11 bits)
+    val sink_ipl = slave Flow UInt(log2Up(peer_num) bits)
   }
 
   ////io.source_ipl.addAttribute("mark_debug")
