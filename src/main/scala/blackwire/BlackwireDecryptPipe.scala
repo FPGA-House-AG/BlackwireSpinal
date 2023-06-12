@@ -308,8 +308,7 @@ object BlackwireDecryptPipeSim {
 // "CCCCLLLLb315SSSS", DDDD=port 5555 (0x15b3)
 // "00000000FFFF0000"
 
-      var packet_idx = 0
-      val inter_packet_gap = 0
+
 
       val packet_contents = Vector(
         // RFC7539 2.8.2. Example and Test Vector for AEAD_CHACHA20_POLY1305
@@ -345,6 +344,8 @@ object BlackwireDecryptPipeSim {
       val packet_content_lengths = Vector(64 + 64 + 32, 16+16, 16 + 16 + 16, 16 + 16 + 16, 64 + 64 + 32)
       val packet_content_good    = Vector(true, true, false, true, true)
 
+      var packet_idx = 0
+      val inter_packet_gap = 0
       val packet_num = 25
       var packet_content_idx = 0
       var expected_good = 0
