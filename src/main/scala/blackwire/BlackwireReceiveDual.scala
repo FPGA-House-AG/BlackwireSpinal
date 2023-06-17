@@ -363,7 +363,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
 
   // delay as much as the lookup takes
   val rrr = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 2))
-  val lal = StreamLatency(Fragment(CorundumFrame(corundumDataWidth, userWidth = 2)), 65)
+  val lal = StreamLatency(Fragment(CorundumFrame(corundumDataWidth, userWidth = 2)), 66)
   lal.io.sink << rr
   rrr << lal.io.source
   val rrr_peer = io.sink_ipl.payload
@@ -372,7 +372,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   ///rrr_peer.addAttribute("mark_debug")
 
   val ethhdr = CorundumFrameInsertHeader(corundumDataWidth, userWidth = 2, 14)
-  ethhdr.io.sink << rrr.throwWhen(rrr_peer === 0)
+  ethhdr.io.sink << rrr.throwWhen(rrr_peer === 255)
   ethhdr.io.header := B("112'x000a3506a3beaabbcc2222220800").subdivideIn(8 bits).reverse.asBits
   val h = Stream Fragment(CorundumFrame(corundumDataWidth, userWidth = 2))
   h << ethhdr.io.source
