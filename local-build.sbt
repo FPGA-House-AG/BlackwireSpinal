@@ -11,6 +11,7 @@ val spinalDir = "../SpinalHDL.dev"
 
 val spinalCore = "com.github.spinalhdl" %% "spinalhdl-core" % spinalVersion
 val spinalLib = "com.github.spinalhdl" %% "spinalhdl-lib" % spinalVersion
+val spinalTester = "com.github.spinalhdl" %% "spinalhdl-tester" % spinalVersion
 val spinalIdslPlugin = compilerPlugin("com.github.spinalhdl" %% "spinalhdl-idsl-plugin" % spinalVersion)
 
 val sourceCode = "com.lihaoyi" %% "sourcecode" % "0.2.7"
@@ -23,16 +24,16 @@ lazy val blackwireSpinal = (project in file("."))
     name := "BlackwireSpinal",
     libraryDependencies ++= Seq(sourceCode, scalaTest),
     //libraryDependencies ++= Seq(breeze),
-    //libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin)
+    //libraryDependencies ++= Seq(spinalCore, spinalLib, spinalTester, spinalIdslPlugin)
 
     // the following 3 lines take SpinalHDL from a local checkout, above line must be commented out
     scalacOptions += s"-Xplugin:${new File(baseDirectory.value + s"/" + spinalDir + s"/idslplugin/target/scala-2.11/spinalhdl-idsl-plugin_2.11-$spinalVersion.jar")}",
     scalacOptions += s"-Xplugin-require:idsl-plugin"
-  ).dependsOn(localHdlIdslPlugin, localHdlSim, localHdlCore, localHdlLib)
+  ).dependsOn(localHdlIdslPlugin, localHdlSim, localHdlCore, localHdlLib, localHdlTester)
 lazy val localHdlIdslPlugin = ProjectRef(file(spinalDir), "idslplugin")
 lazy val localHdlSim = ProjectRef(file(spinalDir), "sim")
 lazy val localHdlCore = ProjectRef(file(spinalDir), "core")
 lazy val localHdlLib = ProjectRef(file(spinalDir), "lib")
-
+lazy val localHdlTester = ProjectRef(file(spinalDir), "tester")
 // for simulation
 fork := true
