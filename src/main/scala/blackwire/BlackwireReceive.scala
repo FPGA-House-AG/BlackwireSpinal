@@ -248,7 +248,7 @@ case class BlackwireReceive(busCfg : Axi4Config, include_chacha : Boolean = true
   // lookup peer that belongs to this source IP address
   val ip_addr = r.payload.fragment.tdata(12 * 8, 32 bits).subdivideIn(8 bits).reverse.asBits
   val ip_addr_lookup = r.firstFire
-  io.source_ipl.valid := RegNext(ip_addr_lookup)
+  io.source_ipl.valid := RegNext(ip_addr_lookup) init(False)
   io.source_ipl.payload := RegNext(ip_addr)
 
   output_stash_too_full := !outstash.io.sink.ready

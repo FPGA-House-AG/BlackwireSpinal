@@ -337,7 +337,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   rr.payload.tkeep := RegNextWhen(r.payload.tkeep, r.ready)
   rr.payload.tuser(0) := RegNextWhen(r.payload.tuser(0), r.ready)
   rr.payload.tuser(1) := RegNextWhen(crypto_mux.io.chosen.asBool, r.ready)
-  rr.valid := RegNextWhen(r.valid, r.ready)
+  rr.valid := RegNextWhen(r.valid, r.ready) init(False)
   rr.last := RegNextWhen(r.last, r.ready)
   r.ready := rr.ready
 
@@ -358,7 +358,7 @@ case class BlackwireReceiveDual(busCfg : Axi4Config, cryptoCD : ClockDomain, has
   // lookup peer that belongs to this source IP address
   val ip_addr = rr.payload.fragment.tdata(12 * 8, 32 bits).subdivideIn(8 bits).reverse.asBits
   val ip_addr_lookup = rr.firstFire
-  io.source_ipl.valid := RegNext(ip_addr_lookup)
+  io.source_ipl.valid := RegNext(ip_addr_lookup) init(False)
   io.source_ipl.payload := RegNext(ip_addr)
 
   // delay as much as the lookup takes

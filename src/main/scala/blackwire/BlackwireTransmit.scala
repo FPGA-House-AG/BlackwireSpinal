@@ -113,7 +113,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   }
 
   // lookup IPv4 addresses but only for non-dropped packets
-  io.source_ipl.valid := RegNext(i.firstFire && !drop)
+  io.source_ipl.valid := RegNext(i.firstFire && !drop) init(False)
   /* lookup destination IP address for Cryptokey Routing */
   io.source_ipl.payload := RegNext(i.payload.fragment.tdata((14 + 16) * 8, 32 bits).subdivideIn(8 bits).reverse.asBits)
 
@@ -164,7 +164,7 @@ case class BlackwireTransmit(busCfg : Axi4Config, include_chacha : Boolean = tru
   // put x TX tags only for undropped packets in separate stream
   val x_tags = Stream(Bits(16 bits))
   x_tags.payload := RegNext(a.fragment.tuser(16 downto 1))
-  x_tags.valid := RegNext(a.lastFire & !a.tuser(0))
+  x_tags.valid := RegNext(a.lastFire & !a.tuser(0)) init(False)
 
   // queue the forward completions towards our source
   val out_tags = x_tags.queue(1024).stage()
