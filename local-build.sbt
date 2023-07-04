@@ -7,7 +7,7 @@ ThisBuild / organization := "online.blackwire"
 // https://github.com/SpinalHDL/SpinalHDL.git
 // ad62c4ea3fc0acf70885441a88fe8f2336e4cb20
 val spinalVersion = "dev"
-val spinalDir = "../SpinalHDL.dev"
+val spinalDir = "../SpinalHDL"
 
 val spinalCore = "com.github.spinalhdl" %% "spinalhdl-core" % spinalVersion
 val spinalLib = "com.github.spinalhdl" %% "spinalhdl-lib" % spinalVersion
@@ -29,11 +29,16 @@ lazy val blackwireSpinal = (project in file("."))
     // the following 3 lines take SpinalHDL from a local checkout, above line must be commented out
     scalacOptions += s"-Xplugin:${new File(baseDirectory.value + s"/" + spinalDir + s"/idslplugin/target/scala-2.11/spinalhdl-idsl-plugin_2.11-$spinalVersion.jar")}",
     scalacOptions += s"-Xplugin-require:idsl-plugin"
-  ).dependsOn(localHdlIdslPlugin, localHdlSim, localHdlCore, localHdlLib, localHdlTester)
+  )
+  .dependsOn(localHdlIdslPlugin, localHdlSim, localHdlCore, localHdlLib, localHdlTester)
+  .dependsOn(spinalCorundum)
 lazy val localHdlIdslPlugin = ProjectRef(file(spinalDir), "idslplugin")
 lazy val localHdlSim = ProjectRef(file(spinalDir), "sim")
 lazy val localHdlCore = ProjectRef(file(spinalDir), "core")
 lazy val localHdlLib = ProjectRef(file(spinalDir), "lib")
 lazy val localHdlTester = ProjectRef(file(spinalDir), "tester")
+
+lazy val spinalCorundum = ProjectRef(file("../SpinalCorundum"), "spinalCorundum")
+
 // for simulation
 fork := true
