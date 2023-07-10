@@ -62,7 +62,8 @@ case class ChaCha20Poly1305EncryptSpinal() extends Component {
 
   vhdl.io.sink_tvalid := io.sink.valid & !after_last
   vhdl.io.sink_tdata  := U(io.sink.payload.fragment.subdivideIn(8 bits).reverse.asBits)
-  vhdl.io.sink_tlast  := io.sink.payload.last
+  // TLAST must only be asserted if TVALID is asserted
+  vhdl.io.sink_tlast  := io.sink.payload.last & io.sink.valid
   // pass-through READY outside of the VHDL block, not READY after LAST
   io.sink.ready       := e.ready & !after_last
   vhdl.io.in_key      := U(io.key)
