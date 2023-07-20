@@ -118,7 +118,7 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
 
     // @NOTE tag_valid is unknown before TLAST beats, so AND it with TLAST
     // to prevent inserting an unknown drop signal on non-last beats to the output
-    s_drop := RegNextWhen(p.last & !p_tag_valid, p.ready).init(False)
+    s_drop := RegNextWhen(p.last & !p_tag_valid & !RegNext(p_tag_valid), p.ready).init(False)
     if (instanceNr == 0) {
       ///decrypt.io.addAttribute("mark_debug")
     }
