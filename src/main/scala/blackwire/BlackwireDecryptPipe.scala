@@ -109,12 +109,42 @@ case class BlackwireDecryptPipe(busCfg : Axi4Config, instanceNr : Int = 0, has_b
     // pop key from RX key FIFO 
     rxkey.ready := m.firstFire
 
+    // q is p, but with:
+    // - zero-length packet replaced by 1 byte packet "00"
+    // - non-authenticated packets dropped, followed by a 1 byte "01" pop packet
+    // to pop the FIFOs
+    val q = Stream(Fragment(Bits(cryptoDataWidth bits)))
+    q << p
+
+    val p_is_zero_len_pkt = p.lastFire && p.first && RegNext(p_tag_valid)
+    val p_is_nonauthentic_pkt = p.lastFire && !p_tag_valid && !p_is_zero_len_pkt
+
     // from the first word, extract the IPv4 Total Length field to determine packet length
-    //when (p.isFirst) {
-    //  s_length.assignFromBits(p.payload.fragment(16, 16 bits).resize(12))
-    //}
-    s_length := RegNextWhen(U(p.payload.fragment(16, 16 bits).resize(12)), p.firstFire)
-    s <-< p
+    s_length.setAsReg()
+
+    // zero-length keep-alive packet? (TAG_VALID one cycle before TLAST)
+    when (p_is_zero_len_pkt) {
+      assert(!p_tag_valid)
+      // set length to single byte (the IP version byte)
+      s_length := 1
+      // clear IP version byte to indicate zero length packet
+      q.payload.fragment(0, 8 bits) := 0
+    } elsewhen (p.firstFire) {
+      // assign length from IPv4 header
+      s_length.assignFromBits(p.payload.fragment(16, 16 bits).resize(12))
+    }
+    val generate_pop_packet = RegNext(p_is_nonauthentic_pkt && !RegNext(p_is_nonauthentic_pkt), False)
+    // p is a non-authentic packet?
+    when (generate_pop_packet) {
+      // generate a special packet to pop the endpoint and nonce FIFOs
+      s_length := 1
+      q.payload.fragment(0, 8 bits) := 1
+      q.valid := True
+      q.last := True
+    }
+    // old code, does not handle zero-length keep-alive packetsq
+    //s_length := RegNextWhen(U(p.payload.fragment(16, 16 bits).resize(12)), p.firstFire)
+    s <-< q
 
     // @NOTE tag_valid is unknown before TLAST beats, so AND it with TLAST
     // to prevent inserting an unknown drop signal on non-last beats to the output
